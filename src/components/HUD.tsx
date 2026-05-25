@@ -113,26 +113,69 @@ interface WonderBarProps {
 }
 
 function WonderBar({ label, playerPct, texPct, playerContrib, texContrib, required, unit }: WonderBarProps) {
+  const playerLeads = playerPct > texPct + 10
+  const texLeads    = texPct > playerPct + 10
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200 }}>
-      <div style={{ fontFamily: 'var(--font-title)', fontSize: '0.6rem', color: 'var(--accent-dim)', letterSpacing: '0.08em', textAlign: 'center' }}>
-        {label}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 220 }}>
+
+      {/* Label + amount */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ fontFamily: 'var(--font-ui)', fontSize: '0.62rem', color: 'var(--accent-dim)', letterSpacing: '0.07em' }}>
+          {label}
+        </span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+          {playerContrib + texContrib}/{required} {unit}
+        </span>
       </div>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <span style={{ fontSize: '0.65rem', color: 'var(--player-color)', width: 22, textAlign: 'right' }}>{playerPct}%</span>
-        <div style={{ flex: 1, height: 5, background: 'var(--bg-card)', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${playerPct}%`, background: 'var(--player-color)', borderRadius: 3, transition: 'width 0.4s ease' }} />
+
+      {/* Player bar */}
+      <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+        <div style={{ flex: 1, height: 7, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', width: `${playerPct}%`,
+            background: 'var(--player-color)',
+            borderRadius: 4,
+            transition: 'width 0.5s ease',
+            boxShadow: playerLeads ? '0 0 8px rgba(76,138,201,0.7)' : undefined,
+          }} />
         </div>
-        <div style={{ flex: 1, height: 5, background: 'var(--bg-card)', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${texPct}%`, background: 'var(--tex-color)', borderRadius: 3, transition: 'width 0.4s ease' }} />
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: '0.68rem',
+          color: playerLeads ? 'var(--player-color)' : 'var(--text-muted)',
+          width: 28, textAlign: 'right', fontWeight: playerLeads ? 500 : 400,
+        }}>
+          {playerPct}%
+        </span>
+      </div>
+
+      {/* Tex bar */}
+      <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+        <div style={{ flex: 1, height: 7, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', width: `${texPct}%`,
+            background: 'var(--tex-color)',
+            borderRadius: 4,
+            transition: 'width 0.5s ease',
+            boxShadow: texLeads ? '0 0 8px rgba(201,76,76,0.7)' : undefined,
+          }} />
         </div>
-        <span style={{ fontSize: '0.65rem', color: 'var(--tex-color)', width: 22 }}>{texPct}%</span>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: '0.68rem',
+          color: texLeads ? 'var(--tex-color)' : 'var(--text-muted)',
+          width: 28, textAlign: 'right', fontWeight: texLeads ? 500 : 400,
+        }}>
+          {texPct}%
+        </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: 'var(--text-muted)' }}>
-        <span>Toi</span>
-        <span>{playerContrib}/{required} {unit}</span>
-        <span>Tex</span>
+
+      {/* Player / Tex labels */}
+      <div style={{ display: 'flex', fontSize: '0.58rem', color: 'var(--text-muted)', paddingRight: 35 }}>
+        <span style={{ color: 'var(--player-color)', opacity: 0.7 }}>Toi</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ color: 'var(--tex-color)', opacity: 0.7 }}>Tex</span>
       </div>
+
     </div>
   )
 }
