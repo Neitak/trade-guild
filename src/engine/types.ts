@@ -1,8 +1,10 @@
 // ─── Resources & Buildings ───────────────────────────────────────────────────
 
-export type ResourceId = 'apple'
+export type ResourceId = 'apple' | 'wood'
 
-export type BuildingId = 'orchard' | 'fruit_market'
+export type BuildingId = 'orchard' | 'fruit_market' | 'sawmill' | 'menuiserie'
+
+export type WonderId = 'tower_of_magic' | 'grande_cathedrale'
 
 export type BuildingTier = 1 | 2
 
@@ -96,15 +98,11 @@ export interface GuildState {
 
 // ─── Wonder ──────────────────────────────────────────────────────────────────
 
-export interface WonderContribution {
-  apple: number
-}
-
 export interface WonderProgress {
-  id: 'tower_of_magic'
+  id: WonderId
   name: string
   requiredResources: Partial<Record<ResourceId, number>>
-  // Each guild builds independently — first to reach required wins
+  // Each guild builds independently — first to reach required (on any wonder) wins
   playerContributed: Partial<Record<ResourceId, number>>
   texContributed: Partial<Record<ResourceId, number>>
   complete: boolean
@@ -147,7 +145,8 @@ export interface GameState {
   log: GameEvent[]
   pendingRumors: PendingRumor[]
   activeRumors: ActiveRumor[]
-  wonder: WonderProgress
+  wonders: WonderProgress[] // [tower_of_magic, grande_cathedrale] — first completed wins
+  texStrategy: { preferredResource: ResourceId } // picked randomly at game start
   // Share registry: who owns what % of which building
   shareRegistry: ShareOwnership[]
 }

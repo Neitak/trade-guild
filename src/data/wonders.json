@@ -4,5 +4,11 @@
     "name": "Tour de Magie",
     "description": "Celui qui érige la Tour de Magie remporte la partie.",
     "requiredResources": { "apple": 800 }
+  },
+  {
+    "id": "grande_cathedrale",
+    "name": "Grande Cathédrale",
+    "description": "Celui qui bâtit la Grande Cathédrale remporte la partie.",
+    "requiredResources": { "wood": 400 }
   }
 ]

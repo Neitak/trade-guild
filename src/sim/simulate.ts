@@ -23,12 +23,20 @@ function runPlayerBot(state: GameState): GameState {
     return s
   }
 
-  // Phase 2: contribute surplus to wonder (keep 20 as buffer)
+  // Phase 2: contribute surplus to wonder — try Tour de Magie first (apples), then Cathédrale (wood)
   const playerApples = s.player.inventory['apple'] ?? 0
-  const wonderNeeded = (s.wonder.requiredResources['apple'] ?? 0) - (s.wonder.playerContributed['apple'] ?? 0)
-  if (wonderNeeded > 0 && playerApples > 20) {
-    const contribute = Math.min(playerApples - 20, wonderNeeded)
-    if (contribute > 0) s = contributeToWonder(s, contribute)
+  const tower = s.wonders.find(w => w.id === 'tower_of_magic')!
+  const towerNeeded = (tower.requiredResources['apple'] ?? 0) - (tower.playerContributed['apple'] ?? 0)
+  if (towerNeeded > 0 && playerApples > 20) {
+    const contribute = Math.min(playerApples - 20, towerNeeded)
+    if (contribute > 0) s = contributeToWonder(s, contribute, 'tower_of_magic')
+  }
+  const playerWood = s.player.inventory['wood'] ?? 0
+  const cathedrale = s.wonders.find(w => w.id === 'grande_cathedrale')!
+  const cathedNeeded = (cathedrale.requiredResources['wood'] ?? 0) - (cathedrale.playerContributed['wood'] ?? 0)
+  if (cathedNeeded > 0 && playerWood > 10) {
+    const contribute = Math.min(playerWood - 10, cathedNeeded)
+    if (contribute > 0) s = contributeToWonder(s, contribute, 'grande_cathedrale')
   }
 
   return s
@@ -54,7 +62,7 @@ export function runGame(config: SimConfig = {}): SimResult {
   const playerWorth = state.player.netWorthHistory.at(-1)?.value ?? 0
   const texWorth = state.tex.netWorthHistory.at(-1)?.value ?? 0
   return {
-    winner: state.wonder.completedBy ?? (playerWorth >= texWorth ? 'player' : 'tex'),
+    winner: state.wonders.find(w => w.complete)?.completedBy ?? (playerWorth >= texWorth ? 'player' : 'tex'),
     days: state.day,
     playerFinalGold: state.player.gold,
     texFinalGold: state.tex.gold,

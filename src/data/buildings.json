@@ -14,5 +14,21 @@
     "costResources": { "apple": 120 },
     "productionPerDay": 0,
     "revenuePerDay": 30
+  },
+  {
+    "id": "sawmill",
+    "name": "Scierie",
+    "tier": 1,
+    "costGold": 15,
+    "produces": "wood",
+    "productionPerDay": 8
+  },
+  {
+    "id": "menuiserie",
+    "name": "Menuiserie",
+    "tier": 2,
+    "costResources": { "wood": 80 },
+    "productionPerDay": 0,
+    "revenuePerDay": 35
   }
 ]

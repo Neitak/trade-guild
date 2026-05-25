@@ -6,5 +6,13 @@
     "equilibriumPrice": 1.0,
     "elasticityK": 0.20,
     "startingVolume": 80
+  },
+  {
+    "id": "wood",
+    "name": "Bois",
+    "basePrice": 3.5,
+    "equilibriumPrice": 3.5,
+    "elasticityK": 0.08,
+    "startingVolume": 40
   }
 ]

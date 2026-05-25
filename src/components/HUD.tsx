@@ -5,35 +5,43 @@ interface Props {
 }
 
 export function HUD({ state }: Props) {
-  const { player, tex, day, wonder, market } = state
+  const { player, tex, day, wonders, market } = state
   const applePrice = market.resources.apple.currentPrice
+  const woodPrice  = market.resources.wood.currentPrice
   const playerApples = player.inventory.apple ?? 0
+  const playerWood   = player.inventory.wood  ?? 0
   const texApples = tex.inventory.apple ?? 0
+  const texWood   = tex.inventory.wood  ?? 0
 
-  const playerContrib = wonder.playerContributed.apple ?? 0
-  const texContrib = wonder.texContributed.apple ?? 0
-  const required = wonder.requiredResources.apple ?? 800
-  const playerPct = Math.round((playerContrib / required) * 100)
-  const texPct = Math.round((texContrib / required) * 100)
+  const tower     = wonders.find(w => w.id === 'tower_of_magic')!
+  const cathedrale = wonders.find(w => w.id === 'grande_cathedrale')!
+
+  const towerReq     = tower.requiredResources.apple ?? 800
+  const cathedReq    = cathedrale.requiredResources.wood ?? 400
+
+  const playerTowerPct  = Math.round(((tower.playerContributed.apple    ?? 0) / towerReq)  * 100)
+  const texTowerPct     = Math.round(((tower.texContributed.apple       ?? 0) / towerReq)  * 100)
+  const playerCathedPct = Math.round(((cathedrale.playerContributed.wood ?? 0) / cathedReq) * 100)
+  const texCathedPct    = Math.round(((cathedrale.texContributed.wood    ?? 0) / cathedReq) * 100)
 
   return (
     <div style={{
       display: 'flex',
       alignItems: 'center',
-      gap: 24,
+      gap: 20,
       padding: '8px 20px',
       background: 'var(--bg-panel)',
       borderBottom: '1px solid var(--border)',
       flexShrink: 0,
     }}>
-      {/* Day counter */}
+      {/* Day */}
       <div style={{ fontFamily: 'var(--font-title)', fontSize: '0.75rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
         JOUR <span style={{ color: 'var(--accent)', fontSize: '1.1rem' }}>{day}</span>
       </div>
 
       <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
 
-      {/* Gold — biggest element */}
+      {/* Gold */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <span style={{ fontSize: '1.8rem', fontFamily: 'var(--font-title)', fontWeight: 600, color: 'var(--accent)', lineHeight: 1 }}>
           {Math.floor(player.gold)}
@@ -42,57 +50,88 @@ export function HUD({ state }: Props) {
       </div>
 
       {/* Apple inventory */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: '1.1rem', fontFamily: 'var(--font-title)', color: 'var(--text)' }}>
-          {playerApples}
-        </span>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+        <span style={{ fontSize: '1.05rem', fontFamily: 'var(--font-title)', color: 'var(--text)' }}>{playerApples}</span>
         <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>🍎</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>({applePrice.toFixed(2)} or)</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>({applePrice.toFixed(2)})</span>
+      </div>
+
+      {/* Wood inventory */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+        <span style={{ fontSize: '1.05rem', fontFamily: 'var(--font-title)', color: 'var(--text)' }}>{playerWood}</span>
+        <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>🪵</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>({woodPrice.toFixed(2)})</span>
       </div>
 
       <div style={{ flex: 1 }} />
 
-      {/* Wonder race */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 220 }}>
-        <div style={{ fontFamily: 'var(--font-title)', fontSize: '0.65rem', color: 'var(--accent-dim)', letterSpacing: '0.08em', textAlign: 'center' }}>
-          TOUR DE MAGIE
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {/* Player bar */}
-          <span style={{ fontSize: '0.7rem', color: 'var(--player-color)', width: 20, textAlign: 'right' }}>{playerPct}%</span>
-          <div style={{ flex: 1, height: 6, background: 'var(--bg-card)', borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: `${playerPct}%`,
-              background: 'var(--player-color)',
-              borderRadius: 3,
-              transition: 'width 0.4s ease',
-            }} />
-          </div>
-          <div style={{ flex: 1, height: 6, background: 'var(--bg-card)', borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: `${texPct}%`,
-              background: 'var(--tex-color)',
-              borderRadius: 3,
-              transition: 'width 0.4s ease',
-            }} />
-          </div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--tex-color)', width: 20 }}>{texPct}%</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-          <span>Toi</span>
-          <span>{playerContrib}/{required} pommes</span>
-          <span>Tex</span>
-        </div>
-      </div>
+      {/* Wonder race — Tour de Magie */}
+      <WonderBar
+        label="TOUR DE MAGIE"
+        playerPct={playerTowerPct}
+        texPct={texTowerPct}
+        playerContrib={tower.playerContributed.apple ?? 0}
+        texContrib={tower.texContributed.apple ?? 0}
+        required={towerReq}
+        unit="🍎"
+      />
+
+      <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
+
+      {/* Wonder race — Grande Cathédrale */}
+      <WonderBar
+        label="GRANDE CATHÉDRALE"
+        playerPct={playerCathedPct}
+        texPct={texCathedPct}
+        playerContrib={cathedrale.playerContributed.wood ?? 0}
+        texContrib={cathedrale.texContributed.wood ?? 0}
+        required={cathedReq}
+        unit="🪵"
+      />
 
       <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
 
       {/* Tex status */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '0.75rem', color: 'var(--text-dim)' }}>
         <span>Tex : <span style={{ color: 'var(--tex-color)' }}>{Math.floor(tex.gold)} or</span></span>
-        <span style={{ color: 'var(--text-muted)' }}>{texApples} 🍎</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{texApples} 🍎  {texWood} 🪵</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Reusable wonder progress bar ────────────────────────────────────────────
+
+interface WonderBarProps {
+  label: string
+  playerPct: number
+  texPct: number
+  playerContrib: number
+  texContrib: number
+  required: number
+  unit: string
+}
+
+function WonderBar({ label, playerPct, texPct, playerContrib, texContrib, required, unit }: WonderBarProps) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200 }}>
+      <div style={{ fontFamily: 'var(--font-title)', fontSize: '0.6rem', color: 'var(--accent-dim)', letterSpacing: '0.08em', textAlign: 'center' }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span style={{ fontSize: '0.65rem', color: 'var(--player-color)', width: 22, textAlign: 'right' }}>{playerPct}%</span>
+        <div style={{ flex: 1, height: 5, background: 'var(--bg-card)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${playerPct}%`, background: 'var(--player-color)', borderRadius: 3, transition: 'width 0.4s ease' }} />
+        </div>
+        <div style={{ flex: 1, height: 5, background: 'var(--bg-card)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${texPct}%`, background: 'var(--tex-color)', borderRadius: 3, transition: 'width 0.4s ease' }} />
+        </div>
+        <span style={{ fontSize: '0.65rem', color: 'var(--tex-color)', width: 22 }}>{texPct}%</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: 'var(--text-muted)' }}>
+        <span>Toi</span>
+        <span>{playerContrib}/{required} {unit}</span>
+        <span>Tex</span>
       </div>
     </div>
   )

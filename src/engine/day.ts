@@ -1,4 +1,4 @@
-import type { GameState, GameEvent } from './types'
+import type { GameState, GameEvent, ResourceId, WonderId } from './types'
 import { produceResources } from './buildings'
 import { recoverPrices } from './market'
 import { runTexAI } from './ai'
@@ -23,7 +23,7 @@ export function resolveEndOfDay(state: GameState): GameState {
   // 4. Queue new rumors based on what Tex did today
   s = generateRumors(s)
 
-  // 5. Price recovery + daily snapshot for the price chart
+  // 5. Price recovery + daily snapshot for all resource charts
   s = { ...s, market: recoverPrices(s.market, s.day) }
   s = recordDailyPriceSnapshot(s)
 
@@ -42,20 +42,28 @@ export function resolveEndOfDay(state: GameState): GameState {
       playerGold: s.player.gold,
       texGold: s.tex.gold,
       applePrice: s.market.resources['apple'].currentPrice,
+      woodPrice: s.market.resources['wood'].currentPrice,
     },
   }
 
   return { ...s, log: [...s.log, endEvent] }
 }
 
-// ─── Player contributes to the wonder ────────────────────────────────────────
+// ─── Player contributes to a specific wonder ──────────────────────────────────
 
-export function contributeToWonder(state: GameState, apples: number): GameState {
-  const currentContrib = state.wonder.playerContributed['apple'] ?? 0
-  const required = state.wonder.requiredResources['apple'] ?? 0
-  const playerApples = state.player.inventory['apple'] ?? 0
+export function contributeToWonder(state: GameState, qty: number, wonderId: WonderId): GameState {
+  const wonderIdx = state.wonders.findIndex(w => w.id === wonderId)
+  if (wonderIdx === -1) return state
+  const wonder = state.wonders[wonderIdx]
+  if (wonder.complete) return state
 
-  const actual = Math.min(apples, playerApples, required - currentContrib)
+  // Derive which resource this wonder consumes
+  const resourceId = Object.keys(wonder.requiredResources)[0] as ResourceId
+  const required = wonder.requiredResources[resourceId] ?? 0
+  const currentContrib = wonder.playerContributed[resourceId] ?? 0
+  const playerHas = state.player.inventory[resourceId] ?? 0
+
+  const actual = Math.min(qty, playerHas, required - currentContrib)
   if (actual <= 0) return state
 
   const newContrib = currentContrib + actual
@@ -65,25 +73,24 @@ export function contributeToWonder(state: GameState, apples: number): GameState 
     day: state.day,
     actor: 'player',
     type: complete ? 'WONDER_COMPLETE' : 'WONDER_PROGRESS',
-    payload: { contributed: actual, total: newContrib, required },
+    payload: { wonderId, resourceId, contributed: actual, total: newContrib, required },
+  }
+
+  const updatedWonder = {
+    ...wonder,
+    playerContributed: { ...wonder.playerContributed, [resourceId]: newContrib },
+    complete,
+    completedBy: complete ? 'player' as const : undefined,
+    completedOnDay: complete ? state.day : undefined,
   }
 
   return {
     ...state,
     player: {
       ...state.player,
-      inventory: {
-        ...state.player.inventory,
-        apple: playerApples - actual,
-      },
+      inventory: { ...state.player.inventory, [resourceId]: playerHas - actual },
     },
-    wonder: {
-      ...state.wonder,
-      playerContributed: { apple: newContrib },
-      complete,
-      completedBy: complete ? 'player' : undefined,
-      completedOnDay: complete ? state.day : undefined,
-    },
+    wonders: state.wonders.map((w, i) => i === wonderIdx ? updatedWonder : w),
     log: [...state.log, event],
   }
 }
@@ -91,29 +98,31 @@ export function contributeToWonder(state: GameState, apples: number): GameState 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function recordDailyPriceSnapshot(state: GameState): GameState {
-  const appleMarket = state.market.resources['apple']
-  const lastEntry = appleMarket.priceHistory.at(-1)
-  if (lastEntry?.day === state.day) return state // already recorded this day
-  return {
-    ...state,
-    market: {
-      resources: {
-        ...state.market.resources,
-        apple: {
-          ...appleMarket,
-          priceHistory: [
-            ...appleMarket.priceHistory,
-            { day: state.day, price: parseFloat(appleMarket.currentPrice.toFixed(4)) },
-          ],
-        },
-      },
-    },
+  const resources = { ...state.market.resources }
+  for (const id of Object.keys(resources) as ResourceId[]) {
+    const r = resources[id]
+    const lastEntry = r.priceHistory.at(-1)
+    if (!lastEntry || lastEntry.day !== state.day) {
+      resources[id] = {
+        ...r,
+        priceHistory: [...r.priceHistory, { day: state.day, price: parseFloat(r.currentPrice.toFixed(4)) }],
+      }
+    }
   }
+  return { ...state, market: { resources } }
 }
 
 function updateNetWorth(state: GameState): GameState {
-  const playerWorth = state.player.gold + (state.player.inventory['apple'] ?? 0) * state.market.resources['apple'].currentPrice
-  const texWorth = state.tex.gold + (state.tex.inventory['apple'] ?? 0) * state.market.resources['apple'].currentPrice
+  const applePrice = state.market.resources['apple'].currentPrice
+  const woodPrice  = state.market.resources['wood'].currentPrice
+
+  const playerWorth = state.player.gold
+    + (state.player.inventory['apple'] ?? 0) * applePrice
+    + (state.player.inventory['wood']  ?? 0) * woodPrice
+
+  const texWorth = state.tex.gold
+    + (state.tex.inventory['apple'] ?? 0) * applePrice
+    + (state.tex.inventory['wood']  ?? 0) * woodPrice
 
   return {
     ...state,
@@ -129,25 +138,36 @@ function updateNetWorth(state: GameState): GameState {
 }
 
 function checkGameOver(state: GameState): GameState {
-  // Check if either guild just completed the wonder this turn
-  const required = state.wonder.requiredResources['apple'] ?? 0
-  const playerDone = (state.wonder.playerContributed['apple'] ?? 0) >= required
-  const texDone = (state.wonder.texContributed['apple'] ?? 0) >= required
+  for (const wonder of state.wonders) {
+    const resourceId = Object.keys(wonder.requiredResources)[0] as ResourceId
+    const required = wonder.requiredResources[resourceId] ?? 0
+    const playerDone = (wonder.playerContributed[resourceId] ?? 0) >= required
+    const texDone    = (wonder.texContributed[resourceId]    ?? 0) >= required
 
-  if (playerDone && !state.wonder.complete) {
-    return { ...state, phase: 'won', wonder: { ...state.wonder, complete: true, completedBy: 'player', completedOnDay: state.day } }
+    if (playerDone && !wonder.complete) {
+      const updated = state.wonders.map(w =>
+        w.id === wonder.id ? { ...w, complete: true, completedBy: 'player' as const, completedOnDay: state.day } : w
+      )
+      return { ...state, phase: 'won', wonders: updated }
+    }
+    if (texDone && !wonder.complete) {
+      const updated = state.wonders.map(w =>
+        w.id === wonder.id ? { ...w, complete: true, completedBy: 'tex' as const, completedOnDay: state.day } : w
+      )
+      return { ...state, phase: 'lost', wonders: updated }
+    }
+    // Wonder was already marked complete (e.g. set by contributeToWonder during player action)
+    if (wonder.complete) {
+      return { ...state, phase: wonder.completedBy === 'player' ? 'won' : 'lost' }
+    }
   }
-  if (texDone && !state.wonder.complete) {
-    return { ...state, phase: 'lost', wonder: { ...state.wonder, complete: true, completedBy: 'tex', completedOnDay: state.day } }
-  }
-  if (state.wonder.complete) {
-    const phase = state.wonder.completedBy === 'player' ? 'won' : 'lost'
-    return { ...state, phase }
-  }
+
+  // Day limit fallback
   if (state.day >= 60) {
     const playerWorth = state.player.netWorthHistory.at(-1)?.value ?? 0
-    const texWorth = state.tex.netWorthHistory.at(-1)?.value ?? 0
+    const texWorth    = state.tex.netWorthHistory.at(-1)?.value ?? 0
     return { ...state, phase: playerWorth >= texWorth ? 'won' : 'lost' }
   }
+
   return state
 }

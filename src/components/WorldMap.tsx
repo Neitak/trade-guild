@@ -1,4 +1,4 @@
-import type { GameState } from '../engine/types'
+import type { GameState, BuildingId } from '../engine/types'
 import { previewBuyShare } from '../engine/shares'
 import buildingDefs from '../data/buildings.json'
 
@@ -7,6 +7,7 @@ function getBuildingCostLabel(defId: string): string {
   if (!def) return ''
   if (def.costGold) return `${def.costGold} or`
   if (def.costResources?.apple) return `${def.costResources.apple} 🍎`
+  if (def.costResources?.wood)  return `${def.costResources.wood} 🪵`
   return ''
 }
 
@@ -15,66 +16,85 @@ function canAffordBuilding(defId: string, state: GameState): boolean {
   if (!def) return false
   if (def.costGold) return state.player.gold >= def.costGold
   if (def.costResources?.apple) return (state.player.inventory.apple ?? 0) >= def.costResources.apple
+  if (def.costResources?.wood)  return (state.player.inventory.wood  ?? 0) >= def.costResources.wood
   return false
 }
 
 interface Props {
   state: GameState
-  onBuyBuilding: (defId: 'orchard' | 'fruit_market') => void
+  onBuyBuilding: (defId: BuildingId) => void
   onBuyShare: (instanceId: string) => void
 }
 
+// ─── Node positions match init.ts MAP_NODES coordinates ─────────────────────
 const NODE_POSITIONS: Record<string, { x: number; y: number; label: string; icon: string }> = {
-  orchard_slot_1:  { x: 160, y: 120, label: 'Verger du Vallon',    icon: '🌳' },
-  orchard_slot_2:  { x: 380, y: 80,  label: 'Verger des Collines', icon: '🌳' },
-  market_slot_1:   { x: 280, y: 240, label: 'Place du Marché',     icon: '🏪' },
-  market_slot_2:   { x: 100, y: 260, label: 'Carrefour Nord',      icon: '🏪' },
-  wonder_slot:     { x: 480, y: 200, label: 'Tour de Magie',       icon: '🗼' },
+  // Apple filière (left)
+  orchard_slot_1:    { x: 100, y:  90, label: 'Verger du Vallon',    icon: '🌳' },
+  orchard_slot_2:    { x: 215, y:  50, label: 'Verger des Collines', icon: '🌳' },
+  market_slot_1:     { x: 145, y: 215, label: 'Place du Marché',     icon: '🏪' },
+  market_slot_2:     { x:  55, y: 275, label: 'Carrefour Nord',      icon: '🏪' },
+  // Wonders (center)
+  wonder_slot:       { x: 365, y:  90, label: 'Tour de Magie',       icon: '🗼' },
+  cathedrale_slot:   { x: 365, y: 265, label: 'Grande Cathédrale',   icon: '⛪' },
+  // Wood filière (right)
+  scierie_slot_1:    { x: 540, y:  75, label: 'Scierie Bois Neuf',   icon: '🪵' },
+  scierie_slot_2:    { x: 650, y: 125, label: 'Scierie des Hauteurs', icon: '🪵' },
+  menuiserie_slot_1: { x: 575, y: 215, label: 'Atelier du Bois',     icon: '🔨' },
+  menuiserie_slot_2: { x: 660, y: 280, label: 'Grande Menuiserie',   icon: '🔨' },
 }
 
 const EDGES = [
+  // Apple filière
   ['orchard_slot_1', 'market_slot_1'],
   ['orchard_slot_2', 'market_slot_1'],
-  ['market_slot_1', 'market_slot_2'],
-  ['market_slot_1', 'wonder_slot'],
+  ['market_slot_1',  'market_slot_2'],
   ['orchard_slot_2', 'wonder_slot'],
+  ['market_slot_1',  'wonder_slot'],
+  // Wood filière
+  ['scierie_slot_1',    'menuiserie_slot_1'],
+  ['scierie_slot_2',    'menuiserie_slot_1'],
+  ['menuiserie_slot_1', 'menuiserie_slot_2'],
+  ['scierie_slot_2',    'cathedrale_slot'],
+  ['menuiserie_slot_1', 'cathedrale_slot'],
+  // Center axis between the two wonders
+  ['wonder_slot', 'cathedrale_slot'],
 ]
 
 export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
-  const { map, player, tex } = state
+  const { map, player, tex, wonders } = state
 
-  // Find which buildings are on which node
   function getNodeOwner(nodeId: string) {
-    const node = map.nodes.find(n => n.id === nodeId)
-    return node?.ownedBy
+    return map.nodes.find(n => n.id === nodeId)?.ownedBy
   }
   function getNodeInstance(nodeId: string) {
-    const node = map.nodes.find(n => n.id === nodeId)
-    return node?.buildingInstanceId
+    return map.nodes.find(n => n.id === nodeId)?.buildingInstanceId
   }
   function getNodeDef(nodeId: string) {
-    const node = map.nodes.find(n => n.id === nodeId)
-    return node?.buildingDefId
+    return map.nodes.find(n => n.id === nodeId)?.buildingDefId
   }
-
   function getOwnerColor(owner?: string) {
     if (owner === 'player') return 'var(--player-color)'
-    if (owner === 'tex') return 'var(--tex-color)'
+    if (owner === 'tex')    return 'var(--tex-color)'
     return 'var(--text-muted)'
   }
-
   function renderShareInfo(instanceId: string) {
     const playerShares = player.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
-    const texShares = tex.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
+    const texShares    = tex.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
     return `Toi: ${playerShares}% — Tex: ${texShares}%`
   }
 
-  // Wonder progress
-  const required = state.wonder.requiredResources.apple ?? 0
-  const playerPct = Math.round(((state.wonder.playerContributed.apple ?? 0) / required) * 100)
-  const texPct = Math.round(((state.wonder.texContributed.apple ?? 0) / required) * 100)
+  // Wonder progress per wonder node
+  const tower     = wonders.find(w => w.id === 'tower_of_magic')!
+  const cathedrale = wonders.find(w => w.id === 'grande_cathedrale')!
 
-  const svgW = 580
+  const towerReq    = tower.requiredResources.apple ?? 800
+  const cathedReq   = cathedrale.requiredResources.wood ?? 400
+  const towerPlayerPct  = Math.round(((tower.playerContributed.apple      ?? 0) / towerReq)  * 100)
+  const towerTexPct     = Math.round(((tower.texContributed.apple         ?? 0) / towerReq)  * 100)
+  const cathedPlayerPct = Math.round(((cathedrale.playerContributed.wood  ?? 0) / cathedReq) * 100)
+  const cathedTexPct    = Math.round(((cathedrale.texContributed.wood     ?? 0) / cathedReq) * 100)
+
+  const svgW = 720
   const svgH = 340
 
   return (
@@ -110,12 +130,14 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
           const a = NODE_POSITIONS[from]
           const b = NODE_POSITIONS[to]
           if (!a || !b) return null
+          // Style center axis differently
+          const isCenterAxis = (from === 'wonder_slot' && to === 'cathedrale_slot')
           return (
             <line
               key={i}
               x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-              stroke="rgba(201,168,76,0.15)"
-              strokeWidth={1.5}
+              stroke={isCenterAxis ? 'rgba(201,168,76,0.08)' : 'rgba(201,168,76,0.15)'}
+              strokeWidth={isCenterAxis ? 1 : 1.5}
               strokeDasharray="6 4"
             />
           )
@@ -127,14 +149,18 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
           const instanceId = getNodeInstance(nodeId)
           const defId = getNodeDef(nodeId)
           const color = getOwnerColor(owner)
-          const isWonder = nodeId === 'wonder_slot'
+          const isWonder = nodeId === 'wonder_slot' || nodeId === 'cathedrale_slot'
+          const isTower  = nodeId === 'wonder_slot'
+          const isCathed = nodeId === 'cathedrale_slot'
 
-          // Can player buy this building?
-          const canBuy = !owner && defId && defId !== undefined
-          const canShare = owner === 'tex' && instanceId
-
-          // Share preview
+          const canBuy   = !owner && !!defId
+          const canShare = owner === 'tex' && !!instanceId
           const sharePreview = canShare ? previewBuyShare(state, instanceId!) : null
+
+          // Wonder-specific progress
+          let pPct = 0, tPct = 0
+          if (isTower)  { pPct = towerPlayerPct;  tPct = towerTexPct }
+          if (isCathed) { pPct = cathedPlayerPct; tPct = cathedTexPct }
 
           return (
             <g key={nodeId}>
@@ -154,14 +180,14 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
                 fontSize={isWonder ? 18 : 14}
               >{pos.icon}</text>
 
-              {/* Wonder progress arc */}
+              {/* Wonder progress text */}
               {isWonder && (
                 <>
-                  <text x={pos.x} y={pos.y + 50} textAnchor="middle" fontSize={9} fill="var(--player-color)">
-                    Toi {playerPct}%
+                  <text x={pos.x} y={pos.y + 48} textAnchor="middle" fontSize={9} fill="var(--player-color)">
+                    Toi {pPct}%
                   </text>
-                  <text x={pos.x} y={pos.y + 62} textAnchor="middle" fontSize={9} fill="var(--tex-color)">
-                    Tex {texPct}%
+                  <text x={pos.x} y={pos.y + 60} textAnchor="middle" fontSize={9} fill="var(--tex-color)">
+                    Tex {tPct}%
                   </text>
                 </>
               )}
@@ -171,7 +197,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
                 {pos.label}
               </text>
 
-              {/* Owner badge */}
+              {/* Owner badge (share %) */}
               {owner && instanceId && (
                 <text x={pos.x} y={pos.y - 26} textAnchor="middle" fontSize={8} fill={color}>
                   {renderShareInfo(instanceId)}
@@ -188,7 +214,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
                       opacity: canAffordBuilding(defId, state) ? 1 : 0.45,
                     }}
                     disabled={!canAffordBuilding(defId, state)}
-                    onClick={() => onBuyBuilding(defId as 'orchard' | 'fruit_market')}
+                    onClick={() => onBuyBuilding(defId as BuildingId)}
                   >
                     {getBuildingCostLabel(defId)} — Acheter
                   </button>
@@ -201,7 +227,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
                   <button
                     className="btn-secondary"
                     style={{ width: '100%', padding: '2px 0', fontSize: '0.65rem', borderColor: 'var(--tex-color)' }}
-                    title={`Acheter 10% pour ${sharePreview.cost} or → +${sharePreview.playerCutPerDay} pommes/j`}
+                    title={`Acheter 10% pour ${sharePreview.cost} or → +${sharePreview.playerCutPerDay}/j`}
                     onClick={() => onBuyShare(instanceId!)}
                     disabled={!sharePreview.canAfford}
                   >
@@ -219,6 +245,9 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
         <span style={{ color: 'var(--player-color)' }}>■ Toi</span>
         <span style={{ color: 'var(--tex-color)' }}>■ Tex</span>
         <span>□ Disponible</span>
+        <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>
+          {state.texStrategy.preferredResource === 'wood' ? '⚔ Tex → Bois' : '⚔ Tex → Pommes'}
+        </span>
       </div>
     </div>
   )

@@ -59,7 +59,8 @@ function findKeyMoments(state: GameState): [string, string] {
   // First building bought
   const firstBuilding = log.find(e => e.type === 'BUY_BUILDING')
   if (firstBuilding && moments.length < 2) {
-    const name = firstBuilding.payload.defId === 'orchard' ? 'Verger' : 'Marché aux Fruits'
+    const names: Record<string, string> = { orchard: 'Verger', fruit_market: 'Marché aux Fruits', sawmill: 'Scierie', menuiserie: 'Menuiserie' }
+    const name = names[firstBuilding.payload.defId as string] ?? String(firstBuilding.payload.defId)
     moments.push(`Dès le jour ${firstBuilding.day}, la construction du ${name} marqua le début de l'empire.`)
   }
 
@@ -74,7 +75,8 @@ function findKeyMoments(state: GameState): [string, string] {
   // Wonder completion (player)
   const wonderDone = log.find(e => e.type === 'WONDER_COMPLETE' && e.actor === 'player')
   if (wonderDone && moments.length < 2) {
-    moments.push(`Au jour ${wonderDone.day}, la Tour de Magie s'éleva enfin — et la victoire fut consommée.`)
+    const wName = wonderDone.payload.wonderId === 'grande_cathedrale' ? 'Grande Cathédrale' : 'Tour de Magie'
+    moments.push(`Au jour ${wonderDone.day}, la ${wName} s'éleva enfin — et la victoire fut consommée.`)
   }
 
   // Fallback
@@ -136,7 +138,8 @@ function getTitle(archetype: ChronicleResult['archetype'], won: boolean): string
 
 export function generateChronicle(state: GameState): ChronicleResult {
   const archetype = detectArchetype(state.log)
-  const won = state.wonder.completedBy === 'player'
+  const completedWonder = state.wonders.find(w => w.complete)
+  const won = completedWonder?.completedBy === 'player'
   const title = getTitle(archetype, won)
   const moments = findKeyMoments(state)
   const advice = getAdvice(archetype, won)

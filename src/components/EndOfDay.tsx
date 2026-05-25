@@ -12,27 +12,45 @@ export function EndOfDay({ state, onEndDay }: Props) {
 
   function describePlayerEvent(e: GameEvent): string | null {
     if (e.actor !== 'player') return null
+    const buildingNames: Record<string, string> = { orchard: 'Verger', fruit_market: 'Marché aux Fruits', sawmill: 'Scierie', menuiserie: 'Menuiserie' }
+    const resourceIcons: Record<string, string> = { apple: '🍎', wood: '🪵' }
     switch (e.type) {
-      case 'PRODUCTION':
-        return `Votre ${e.payload.buildingId === 'orchard' ? 'verger' : 'marché'} a produit ${e.payload.qty} ${e.payload.resource === 'apple' ? '🍎' : ''}`
-      case 'REVENUE':
-        return `Votre marché a généré ${e.payload.gold} or`
-      case 'BUY_BUILDING':
-        return `Vous avez construit un ${e.payload.defId === 'orchard' ? 'Verger' : 'Marché aux Fruits'}`
-      case 'SELL':
-        return `Vous avez vendu ${e.payload.qty} pommes → +${Math.floor(e.payload.gold as number)} or`
-      case 'BUY':
-        return `Vous avez acheté ${e.payload.qty} pommes`
+      case 'PRODUCTION': {
+        const bName = buildingNames[e.payload.buildingId as string] ?? String(e.payload.buildingId)
+        const icon  = resourceIcons[e.payload.resource as string] ?? ''
+        return `Votre ${bName} a produit ${e.payload.qty} ${icon}`
+      }
+      case 'REVENUE': {
+        const bName = buildingNames[e.payload.buildingId as string] ?? String(e.payload.buildingId)
+        return `Votre ${bName} a généré ${e.payload.gold} or`
+      }
+      case 'BUY_BUILDING': {
+        const bName = buildingNames[e.payload.defId as string] ?? String(e.payload.defId)
+        return `Vous avez construit : ${bName}`
+      }
+      case 'SELL': {
+        const icon = resourceIcons[e.payload.resourceId as string] ?? ''
+        return `Vous avez vendu ${e.payload.qty} ${icon} → +${Math.floor(e.payload.gold as number)} or`
+      }
+      case 'BUY': {
+        const icon = resourceIcons[e.payload.resourceId as string] ?? ''
+        return `Vous avez acheté ${e.payload.qty} ${icon}`
+      }
       case 'BUY_SHARE': {
         const shares = e.payload.playerTotalShares as number
-        const building = e.payload.defId === 'orchard' ? 'verger' : 'marché'
-        const ctrl = shares >= 51 ? ' — CONTRÔLE ACQUIS !' : ''
-        return `Vous détenez ${shares}% du ${building} de Tex (coût : ${e.payload.cost} or)${ctrl}`
+        const bName  = buildingNames[e.payload.defId as string] ?? String(e.payload.defId)
+        const ctrl   = shares >= 51 ? ' — CONTRÔLE ACQUIS !' : ''
+        return `Vous détenez ${shares}% de la ${bName} de Tex (coût : ${e.payload.cost} or)${ctrl}`
       }
-      case 'WONDER_PROGRESS':
-        return `Vous avez apporté ${e.payload.contributed} pommes à la Tour de Magie (${e.payload.total}/${e.payload.required})`
-      case 'WONDER_COMPLETE':
-        return `✦ Vous avez érigé la Tour de Magie !`
+      case 'WONDER_PROGRESS': {
+        const wName = e.payload.wonderId === 'grande_cathedrale' ? 'Grande Cathédrale' : 'Tour de Magie'
+        const icon  = resourceIcons[e.payload.resourceId as string] ?? ''
+        return `Vous avez apporté ${e.payload.contributed} ${icon} à la ${wName} (${e.payload.total}/${e.payload.required})`
+      }
+      case 'WONDER_COMPLETE': {
+        const wName = e.payload.wonderId === 'grande_cathedrale' ? 'Grande Cathédrale' : 'Tour de Magie'
+        return `✦ Vous avez érigé la ${wName} !`
+      }
       default:
         return null
     }
@@ -41,18 +59,28 @@ export function EndOfDay({ state, onEndDay }: Props) {
   function describeTexEvent(e: GameEvent): string | null {
     if (e.actor !== 'tex') return null
     switch (e.type) {
-      case 'SELL':
-        return `Tex a vendu ${e.payload.qty} pommes sur le marché — prix en baisse`
-      case 'BUY':
-        return `Tex a acheté ${e.payload.qty} pommes — il accumule`
-      case 'SELL_SHARE': {
-        const building = e.payload.defId === 'orchard' ? 'verger' : 'marché'
-        return `Tex a racheté ${e.payload.transferredShares}% de son ${building} — il contre-attaque`
+      case 'SELL': {
+        const icon = e.payload.resourceId === 'wood' ? '🪵' : '🍎'
+        return `Tex a vendu ${e.payload.qty} ${icon} sur le marché — prix en baisse`
       }
-      case 'WONDER_PROGRESS':
-        return `Tex a apporté ${e.payload.contributed} pommes à la Tour (${e.payload.total}/${e.payload.required}) !`
-      case 'WONDER_COMPLETE':
-        return `✦ Tex a érigé la Tour de Magie — vous avez perdu.`
+      case 'BUY': {
+        const icon = e.payload.resourceId === 'wood' ? '🪵' : '🍎'
+        return `Tex a acheté ${e.payload.qty} ${icon} — il accumule`
+      }
+      case 'SELL_SHARE': {
+        const buildingNames: Record<string, string> = { orchard: 'Verger', fruit_market: 'Marché aux Fruits', sawmill: 'Scierie', menuiserie: 'Menuiserie' }
+        const bName = buildingNames[e.payload.defId as string] ?? String(e.payload.defId)
+        return `Tex a racheté ${e.payload.transferredShares}% de sa ${bName} — il contre-attaque`
+      }
+      case 'WONDER_PROGRESS': {
+        const wName = e.payload.wonderId === 'grande_cathedrale' ? 'Grande Cathédrale' : 'Tour de Magie'
+        const icon  = e.payload.resourceId === 'wood' ? '🪵' : '🍎'
+        return `Tex a apporté ${e.payload.contributed} ${icon} à la ${wName} (${e.payload.total}/${e.payload.required}) !`
+      }
+      case 'WONDER_COMPLETE': {
+        const wName = e.payload.wonderId === 'grande_cathedrale' ? 'Grande Cathédrale' : 'Tour de Magie'
+        return `✦ Tex a érigé la ${wName} — vous avez perdu.`
+      }
       default:
         return null
     }

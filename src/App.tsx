@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { GameState, ResourceId } from './engine/types'
+import type { GameState, ResourceId, BuildingId, WonderId } from './engine/types'
 import { initGame } from './engine/init'
 import { resolveEndOfDay, contributeToWonder } from './engine/day'
 import { sellToMarket, buyFromMarket } from './engine/market'
@@ -37,11 +37,11 @@ export default function App() {
     dispatch(s => buyFromMarket(s, resourceId, qty))
   }
 
-  function handleContribute(qty: number) {
-    dispatch(s => contributeToWonder(s, qty))
+  function handleContribute(qty: number, wonderId: WonderId) {
+    dispatch(s => contributeToWonder(s, qty, wonderId))
   }
 
-  function handleBuyBuilding(defId: 'orchard' | 'fruit_market') {
+  function handleBuyBuilding(defId: BuildingId) {
     dispatch(s => buyBuilding(s, defId))
   }
 
