@@ -78,6 +78,11 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
     if (owner === 'tex')    return 'var(--tex-color)'
     return 'var(--text-muted)'
   }
+  function getOwnerFill(owner?: string) {
+    if (owner === 'player') return 'rgba(76,138,201,0.22)'
+    if (owner === 'tex')    return 'rgba(201,76,76,0.22)'
+    return 'rgba(18,18,36,0.88)'
+  }
   function renderShareInfo(instanceId: string) {
     const playerShares = player.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
     const texShares    = tex.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
@@ -96,7 +101,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
   const cathedTexPct    = Math.round(((cathedrale.texContributed.wood     ?? 0) / cathedReq) * 100)
 
   const svgW = 720
-  const svgH = 340
+  const svgH = 380
 
   return (
     <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%' }}>
@@ -174,66 +179,77 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
           if (isTower)  { pPct = towerPlayerPct;  tPct = towerTexPct }
           if (isCathed) { pPct = cathedPlayerPct; tPct = cathedTexPct }
 
+          const R = isWonder ? 28 : 24
+
           return (
             <g key={nodeId}>
+              {/* Outer glow ring — owned nodes only */}
+              {owner && (
+                <circle
+                  cx={pos.x} cy={pos.y} r={R + 7}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={1.5}
+                  opacity={0.35}
+                />
+              )}
+
               {/* Node circle */}
               <circle
-                cx={pos.x} cy={pos.y} r={isWonder ? 28 : 22}
-                fill="var(--bg-card)"
+                cx={pos.x} cy={pos.y} r={R}
+                fill={isLocked ? 'rgba(15,15,28,0.9)' : getOwnerFill(owner)}
                 stroke={color}
-                strokeWidth={owner ? 2 : 1}
-                style={{ filter: owner ? `drop-shadow(0 0 6px ${color}40)` : undefined }}
+                strokeWidth={owner ? 3 : (isLocked ? 0.8 : 1.5)}
+                style={{ filter: owner ? `drop-shadow(0 0 10px ${color}70)` : undefined }}
               />
 
-              {/* Icon — locked nodes show 🔒 instead */}
+              {/* Icon — locked nodes show 🔒 */}
               <text
-                x={pos.x} y={pos.y + 6}
+                x={pos.x} y={pos.y + 7}
                 textAnchor="middle"
-                fontSize={isWonder ? 18 : 14}
-                opacity={isLocked ? 0.35 : 1}
+                fontSize={isWonder ? 22 : 16}
+                opacity={isLocked ? 0.3 : 1}
               >{isLocked ? '🔒' : pos.icon}</text>
+
+              {/* Label */}
+              <text
+                x={pos.x} y={pos.y + R + 14}
+                textAnchor="middle"
+                fontSize={11}
+                fill={isLocked ? 'rgba(120,120,140,0.4)' : 'var(--text-dim)'}
+              >
+                {isLocked ? '— bientôt —' : pos.label}
+              </text>
 
               {/* Wonder progress text */}
               {isWonder && (
                 <>
-                  <text x={pos.x} y={pos.y + 48} textAnchor="middle" fontSize={9} fill="var(--player-color)">
+                  <text x={pos.x} y={pos.y + R + 26} textAnchor="middle" fontSize={10} fill="var(--player-color)" fontFamily="var(--font-mono)">
                     Toi {pPct}%
                   </text>
-                  <text x={pos.x} y={pos.y + 60} textAnchor="middle" fontSize={9} fill="var(--tex-color)">
+                  <text x={pos.x} y={pos.y + R + 38} textAnchor="middle" fontSize={10} fill="var(--tex-color)" fontFamily="var(--font-mono)">
                     Tex {tPct}%
                   </text>
                 </>
               )}
 
-              {/* Label */}
-              <text x={pos.x} y={pos.y + (isWonder ? 38 : 32)} textAnchor="middle" fontSize={9} fill={isLocked ? 'rgba(120,120,140,0.4)' : 'var(--text-dim)'}>
-                {isLocked ? '— verrouillé —' : pos.label}
-              </text>
-
-              {/* Degradation indicator (Tier 1 with owner) */}
-              {!isLocked && !isWonder && degradPct >= 15 && (
-                <text x={pos.x} y={pos.y - 36} textAnchor="middle" fontSize={8} fill={degradPct >= 30 ? '#c96060' : '#c9a84c'}>
-                  {degradPct >= 30 ? '🍂' : '🌿'} −{degradPct}%
-                </text>
-              )}
-
-              {/* Owner badge (share %) */}
+              {/* Owner share info — below label */}
               {owner && instanceId && (
-                <text x={pos.x} y={pos.y - 26} textAnchor="middle" fontSize={8} fill={color}>
+                <text x={pos.x} y={pos.y + R + 26} textAnchor="middle" fontSize={9} fill={color} fontFamily="var(--font-mono)">
                   {renderShareInfo(instanceId)}
                 </text>
               )}
 
-              {/* Locked node — no buttons */}
-              {isLocked && (
-                <text x={pos.x} y={pos.y + 45} textAnchor="middle" fontSize={8} fill="rgba(120,120,140,0.4)">
-                  Disponible bientôt
+              {/* Degradation indicator */}
+              {!isLocked && !isWonder && degradPct >= 15 && (
+                <text x={pos.x} y={pos.y - R - 10} textAnchor="middle" fontSize={9} fill={degradPct >= 30 ? '#c96060' : '#c9a84c'}>
+                  {degradPct >= 30 ? '🍂' : '🌿'} −{degradPct}%
                 </text>
               )}
 
               {/* Buy building button */}
               {canBuy && defId && (
-                <foreignObject x={pos.x - 65} y={pos.y + 36} width={130} height={22}>
+                <foreignObject x={pos.x - 65} y={pos.y + R + 14} width={130} height={22}>
                   <button
                     className="btn-secondary"
                     style={{
@@ -250,7 +266,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
 
               {/* Buy share button */}
               {sharePreview && (
-                <foreignObject x={pos.x - 65} y={pos.y + 36} width={130} height={22}>
+                <foreignObject x={pos.x - 65} y={pos.y + R + 36} width={130} height={22}>
                   <button
                     className="btn-secondary"
                     style={{ width: '100%', padding: '2px 0', fontSize: '0.65rem', borderColor: 'var(--tex-color)' }}
