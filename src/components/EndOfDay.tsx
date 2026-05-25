@@ -52,61 +52,56 @@ export function EndOfDay({ state, onEndDay }: Props) {
   const texEvents = todayEvents.map(describeTexEvent).filter(Boolean) as string[]
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 10,
-    }}>
-      {/* Day summary */}
-      {(playerEvents.length > 0 || texEvents.length > 0) && (
-        <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-title)', letterSpacing: '0.06em' }}>
-            JOURNÉE {lastDay}
-          </div>
-          {playerEvents.map((text, i) => (
-            <div key={`p${i}`} style={{ fontSize: '0.82rem', color: 'var(--text)', display: 'flex', gap: 8 }}>
-              <span style={{ color: 'var(--accent-dim)' }}>›</span>
-              <span>{text}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Scrollable log — capped so it never crushes the panels above */}
+      {(playerEvents.length > 0 || texEvents.length > 0 || newRumors.length > 0) && (
+        <div style={{ maxHeight: 140, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Day summary */}
+          {(playerEvents.length > 0 || texEvents.length > 0) && (
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-title)', letterSpacing: '0.06em' }}>
+                JOURNÉE {lastDay}
+              </div>
+              {playerEvents.map((text, i) => (
+                <div key={`p${i}`} style={{ fontSize: '0.82rem', color: 'var(--text)', display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'var(--accent-dim)' }}>›</span>
+                  <span>{text}</span>
+                </div>
+              ))}
+              {texEvents.map((text, i) => (
+                <div key={`t${i}`} style={{ fontSize: '0.82rem', color: 'var(--tex-color)', display: 'flex', gap: 8 }}>
+                  <span>⚔</span>
+                  <span>{text}</span>
+                </div>
+              ))}
             </div>
-          ))}
-          {texEvents.map((text, i) => (
-            <div key={`t${i}`} style={{ fontSize: '0.82rem', color: 'var(--tex-color)', display: 'flex', gap: 8 }}>
-              <span>⚔</span>
-              <span>{text}</span>
+          )}
+
+          {/* New rumors */}
+          {newRumors.length > 0 && (
+            <div style={{
+              background: 'rgba(201,168,76,0.06)',
+              border: '1px solid var(--accent-dim)',
+              borderRadius: 'var(--radius)',
+              padding: '8px 12px',
+            }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--accent-dim)', marginBottom: 4, fontFamily: 'var(--font-title)', letterSpacing: '0.06em' }}>
+                NOUVELLES RUMEURS
+              </div>
+              {newRumors.map((r, i) => (
+                <div key={i} style={{ fontSize: '0.82rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                  📜 {r.text}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      {/* New rumors */}
-      {newRumors.length > 0 && (
-        <div style={{
-          background: 'rgba(201,168,76,0.06)',
-          border: '1px solid var(--accent-dim)',
-          borderRadius: 'var(--radius)',
-          padding: '8px 12px',
-          animation: 'fadeIn 0.4s ease',
-        }}>
-          <div style={{ fontSize: '0.7rem', color: 'var(--accent-dim)', marginBottom: 6, fontFamily: 'var(--font-title)', letterSpacing: '0.06em' }}>
-            NOUVELLES RUMEURS
-          </div>
-          {newRumors.map((r, i) => (
-            <div key={i} style={{ fontSize: '0.82rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
-              📜 {r.text}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* End day button */}
+      {/* End day button — always visible */}
       <button
         className="btn-primary"
-        style={{
-          width: '100%',
-          padding: '14px',
-          fontSize: '1rem',
-          letterSpacing: '0.1em',
-        }}
+        style={{ width: '100%', padding: '14px', fontSize: '1rem', letterSpacing: '0.1em' }}
         onClick={onEndDay}
       >
         Terminer cette journée →
