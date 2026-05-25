@@ -1,6 +1,7 @@
 import type { GameState, BuildingId } from '../engine/types'
 import { previewBuyShare } from '../engine/shares'
 import buildingDefs from '../data/buildings.json'
+import bgMap from '../../images/bg01.png'
 
 function getBuildingCostLabel(defId: string): string {
   const def = (buildingDefs as any[]).find(b => b.id === defId)
@@ -124,7 +125,9 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
       )}
 
       {/* SVG Map */}
-      <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ flex: 1 }}>
+      <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ flex: 1, borderRadius: 8 }}>
+        <image href={bgMap} x={0} y={0} width={svgW} height={svgH} preserveAspectRatio="xMidYMid slice" />
+        <rect x={0} y={0} width={svgW} height={svgH} fill="rgba(10,10,25,0.45)" />
         {/* Edges */}
         {EDGES.map(([from, to], i) => {
           const a = NODE_POSITIONS[from]
