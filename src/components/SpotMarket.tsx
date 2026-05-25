@@ -262,47 +262,57 @@ export function SpotMarket({ state, onSell, onBuy, onContribute }: Props) {
       {/* Trade actions */}
       <div style={{ display: 'flex', gap: 10 }}>
         {/* Sell */}
-        <div style={{ flex: 1, background: 'var(--bg-card)', borderRadius: 'var(--radius)', padding: 10 }}>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 7, fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
+        <div style={{ flex: 1, background: 'rgba(201,76,76,0.06)', border: '1px solid rgba(201,76,76,0.22)', borderRadius: 'var(--radius)', padding: 10 }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--danger)', marginBottom: 7, fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
             Vendre
           </div>
           <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
             {SELL_QTYS.map(q => (
               <button key={q} className="btn-secondary"
-                style={{ flex: 1, padding: '3px 0', fontSize: '0.75rem', borderColor: q === activeQtySell ? 'var(--accent)' : undefined }}
+                style={{ flex: 1, padding: '3px 0', fontSize: '0.75rem', borderColor: q === activeQtySell ? 'var(--danger)' : undefined, color: q === activeQtySell ? 'var(--danger)' : undefined }}
                 onClick={() => setActiveQtySell(q)}>{q}</button>
             ))}
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 7, minHeight: 28, fontFamily: 'var(--font-mono)' }}>
             {canSell
-              ? <>→ <span style={{ color: 'var(--accent-dim)' }}>{sellPreview.newPrice.toFixed(2)}</span> · <span className="gold-value">+{Math.floor(sellPreview.goldEarned)} or</span></>
-              : <span style={{ color: 'var(--danger)' }}>Stock insuffisant ({playerQty})</span>
+              ? <>→ <span style={{ color: 'var(--text-muted)' }}>{sellPreview.newPrice.toFixed(2)}</span> · <span className="gold-value">+{Math.floor(sellPreview.goldEarned)} or</span></>
+              : <span style={{ color: 'var(--text-muted)' }}>Stock insuffisant ({playerQty})</span>
             }
           </div>
-          <button className="btn-primary" style={{ width: '100%' }} disabled={!canSell} onClick={() => onSell(activeResource, activeQtySell)}>
+          <button
+            className="btn-primary"
+            style={{ width: '100%', background: 'linear-gradient(135deg, #c94c4c, #8f3030)', borderColor: '#c94c4c', color: '#fff' }}
+            disabled={!canSell}
+            onClick={() => onSell(activeResource, activeQtySell)}
+          >
             Vendre {activeQtySell} {resourceIcon}
           </button>
         </div>
 
         {/* Buy */}
-        <div style={{ flex: 1, background: 'var(--bg-card)', borderRadius: 'var(--radius)', padding: 10 }}>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 7, fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
+        <div style={{ flex: 1, background: 'rgba(76,175,106,0.06)', border: '1px solid rgba(76,175,106,0.22)', borderRadius: 'var(--radius)', padding: 10 }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--success)', marginBottom: 7, fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
             Acheter
           </div>
           <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
             {BUY_QTYS.map(q => (
               <button key={q} className="btn-secondary"
-                style={{ flex: 1, padding: '3px 0', fontSize: '0.75rem', borderColor: q === activeQtyBuy ? 'var(--accent)' : undefined }}
+                style={{ flex: 1, padding: '3px 0', fontSize: '0.75rem', borderColor: q === activeQtyBuy ? 'var(--success)' : undefined, color: q === activeQtyBuy ? 'var(--success)' : undefined }}
                 onClick={() => setActiveQtyBuy(q)}>{q}</button>
             ))}
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 7, minHeight: 28, fontFamily: 'var(--font-mono)' }}>
             {canBuy
-              ? <>→ <span style={{ color: 'var(--accent-dim)' }}>{buyPreview.newPrice.toFixed(2)}</span> · <span className="gold-value">{Math.floor(buyPreview.cost)} or</span></>
-              : <span style={{ color: 'var(--danger)' }}>Or insuffisant ou marché vide</span>
+              ? <>→ <span style={{ color: 'var(--text-muted)' }}>{buyPreview.newPrice.toFixed(2)}</span> · <span className="gold-value">{Math.floor(buyPreview.cost)} or</span></>
+              : <span style={{ color: 'var(--text-muted)' }}>Or insuffisant ou marché vide</span>
             }
           </div>
-          <button className="btn-primary" style={{ width: '100%' }} disabled={!canBuy} onClick={() => onBuy(activeResource, activeQtyBuy)}>
+          <button
+            className="btn-primary"
+            style={{ width: '100%', background: 'linear-gradient(135deg, #4caf6a, #2e7a47)', borderColor: '#4caf6a', color: '#fff' }}
+            disabled={!canBuy}
+            onClick={() => onBuy(activeResource, activeQtyBuy)}
+          >
             Acheter {activeQtyBuy} {resourceIcon}
           </button>
         </div>
