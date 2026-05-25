@@ -2,13 +2,31 @@
   {
     "id": "default",
     "openingSentence": "Tex vient d'arriver en ville avec 500 pièces d'or. Toi, tu as une pomme et 10 pièces d'or. Objectif : ériger la Tour de Magie avant lui.",
-    "player": {
-      "gold": 10,
-      "inventory": { "apple": 1 }
-    },
-    "tex": {
-      "gold": 500,
-      "inventory": {}
-    }
+    "player": { "gold": 10, "inventory": { "apple": 1 } },
+    "tex": { "gold": 500, "inventory": {} }
+  },
+  {
+    "id": "late_start",
+    "openingSentence": "Tu dormais encore quand Tex a racheté la moitié du marché. Il ne te reste que 8 pièces, un sac de pommes, et ta dignité. Deux sur trois suffiront.",
+    "player": { "gold": 8, "inventory": { "apple": 12 } },
+    "tex": { "gold": 520, "inventory": {} }
+  },
+  {
+    "id": "underdog",
+    "openingSentence": "Ton oncle t'a légué 15 pièces d'or et un verger miteux. Tex, lui, hérite d'une fortune familiale. La Tour de Magie sera ta vengeance.",
+    "player": { "gold": 15, "inventory": { "apple": 0 } },
+    "tex": { "gold": 480, "inventory": {} }
+  },
+  {
+    "id": "race",
+    "openingSentence": "Le Conseil de la Ville a annoncé : la Tour de Magie sera construite d'ici deux mois. Tex a sorti son carnet de chèques. Toi, t'as 20 pièces et une bonne paire de bottes.",
+    "player": { "gold": 20, "inventory": { "apple": 0 } },
+    "tex": { "gold": 460, "inventory": { "apple": 5 } }
+  },
+  {
+    "id": "apple_glut",
+    "openingSentence": "La récolte a été catastrophiquement bonne. Tu nages dans les pommes, mais Tex a déjà acheté les meilleurs emplacements du marché. Il va falloir ruser.",
+    "player": { "gold": 5, "inventory": { "apple": 30 } },
+    "tex": { "gold": 500, "inventory": {} }
   }
 ]

@@ -11,8 +11,11 @@ const MAP_NODES: MapNode[] = [
   { id: 'wonder_slot', label: 'Tour de Magie', x: 500, y: 250, type: 'wonder' },
 ]
 
-export function initGame(scenarioId = 'default'): GameState {
-  const scenario = (scenarioDefs as any[]).find(s => s.id === scenarioId) ?? scenarioDefs[0]
+export function initGame(scenarioId?: string): GameState {
+  const defs = scenarioDefs as any[]
+  const scenario = scenarioId
+    ? (defs.find(s => s.id === scenarioId) ?? defs[0])
+    : defs[Math.floor(Math.random() * defs.length)]
   const wonder = (wonderDefs as any[])[0]
   const appleResource = (resourceDefs as any[])[0]
 
