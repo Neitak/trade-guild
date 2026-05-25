@@ -86,7 +86,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
       {/* Rumors */}
       {state.activeRumors.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {state.activeRumors.slice(-3).map((r, i) => (
+          {[...new Map(state.activeRumors.map(r => [r.text, r])).values()].slice(-3).map((r, i) => (
             <div key={i} style={{
               background: 'rgba(201,168,76,0.08)',
               border: '1px solid var(--accent-dim)',

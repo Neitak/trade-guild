@@ -30,12 +30,26 @@ export function runTexAI(state: GameState): GameState {
     s = texBuyBuilding(s, 'fruit_market')
   }
 
-  // 4. Sell apples at high price (profit-taking, only when above threshold)
+  // 4. Sell apples at high price (profit-taking)
   const appleMarket = s.market.resources['apple']
   const texApplesNow = s.tex.inventory['apple'] ?? 0
-  if (appleMarket.currentPrice > appleMarket.equilibriumPrice * 1.15 && texApplesNow > 40) {
-    const qtyToSell = Math.floor(texApplesNow * 0.3)
+  if (appleMarket.currentPrice > appleMarket.equilibriumPrice * 1.10 && texApplesNow > 25) {
+    const qtyToSell = Math.floor(texApplesNow * 0.4)
     if (qtyToSell > 0) s = texSellToMarket(s, 'apple', qtyToSell)
+  }
+
+  // 4b. Buy opportunistically when price is low (below 90% equilibrium), even without a building goal
+  const appleMarketNow = s.market.resources['apple']
+  const texApplesAfterSell = s.tex.inventory['apple'] ?? 0
+  const hasFruitMarketNow = s.tex.buildings.some(b => b.defId === 'fruit_market')
+  if (
+    hasFruitMarketNow &&
+    appleMarketNow.currentPrice < appleMarketNow.equilibriumPrice * 0.90 &&
+    texApplesAfterSell < 80 &&
+    s.tex.gold > 60
+  ) {
+    const qty = Math.min(20, appleMarketNow.volumeAvailable, Math.floor(s.tex.gold * 0.15))
+    if (qty > 0) s = texBuyFromMarket(s, 'apple', qty)
   }
 
   // 5. Contribute to wonder — starts from day 10, keep 20 as buffer

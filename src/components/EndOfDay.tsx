@@ -6,32 +6,50 @@ interface Props {
 }
 
 export function EndOfDay({ state, onEndDay }: Props) {
-  // Events from the last completed day
   const lastDay = state.day
   const todayEvents = state.log.filter(e => e.day === lastDay && e.actor !== 'system')
   const newRumors = state.activeRumors.filter(r => r.day === lastDay)
 
-  function describeEvent(e: GameEvent): string | null {
+  function describePlayerEvent(e: GameEvent): string | null {
+    if (e.actor !== 'player') return null
     switch (e.type) {
       case 'PRODUCTION':
         return `Votre ${e.payload.buildingId === 'orchard' ? 'verger' : 'marché'} a produit ${e.payload.qty} ${e.payload.resource === 'apple' ? '🍎' : ''}`
       case 'REVENUE':
         return `Votre marché a généré ${e.payload.gold} or`
       case 'BUY_BUILDING':
-        if (e.actor === 'tex') return null // On garde ça pour les rumeurs
         return `Vous avez construit un ${e.payload.defId === 'orchard' ? 'Verger' : 'Marché aux Fruits'}`
+      case 'SELL':
+        return `Vous avez vendu ${e.payload.qty} pommes → +${Math.floor(e.payload.gold as number)} or`
+      case 'BUY':
+        return `Vous avez acheté ${e.payload.qty} pommes`
       case 'WONDER_PROGRESS':
-        if (e.actor === 'player') return `Vous avez apporté ${e.payload.contributed} pommes à la Tour de Magie (${e.payload.total}/${e.payload.required})`
-        return null
+        return `Vous avez apporté ${e.payload.contributed} pommes à la Tour de Magie (${e.payload.total}/${e.payload.required})`
       case 'WONDER_COMPLETE':
-        if (e.actor === 'player') return `✦ Vous avez érigé la Tour de Magie !`
-        return null
+        return `✦ Vous avez érigé la Tour de Magie !`
       default:
         return null
     }
   }
 
-  const displayEvents = todayEvents.map(describeEvent).filter(Boolean) as string[]
+  function describeTexEvent(e: GameEvent): string | null {
+    if (e.actor !== 'tex') return null
+    switch (e.type) {
+      case 'SELL':
+        return `Tex a vendu ${e.payload.qty} pommes sur le marché — prix en baisse`
+      case 'BUY':
+        return `Tex a acheté ${e.payload.qty} pommes — il accumule`
+      case 'WONDER_PROGRESS':
+        return `Tex a apporté ${e.payload.contributed} pommes à la Tour (${e.payload.total}/${e.payload.required}) !`
+      case 'WONDER_COMPLETE':
+        return `✦ Tex a érigé la Tour de Magie — vous avez perdu.`
+      default:
+        return null
+    }
+  }
+
+  const playerEvents = todayEvents.map(describePlayerEvent).filter(Boolean) as string[]
+  const texEvents = todayEvents.map(describeTexEvent).filter(Boolean) as string[]
 
   return (
     <div style={{
@@ -40,14 +58,20 @@ export function EndOfDay({ state, onEndDay }: Props) {
       gap: 10,
     }}>
       {/* Day summary */}
-      {displayEvents.length > 0 && (
+      {(playerEvents.length > 0 || texEvents.length > 0) && (
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-title)', letterSpacing: '0.06em' }}>
             JOURNÉE {lastDay}
           </div>
-          {displayEvents.map((text, i) => (
-            <div key={i} style={{ fontSize: '0.82rem', color: 'var(--text)', display: 'flex', gap: 8 }}>
+          {playerEvents.map((text, i) => (
+            <div key={`p${i}`} style={{ fontSize: '0.82rem', color: 'var(--text)', display: 'flex', gap: 8 }}>
               <span style={{ color: 'var(--accent-dim)' }}>›</span>
+              <span>{text}</span>
+            </div>
+          ))}
+          {texEvents.map((text, i) => (
+            <div key={`t${i}`} style={{ fontSize: '0.82rem', color: 'var(--tex-color)', display: 'flex', gap: 8 }}>
+              <span>⚔</span>
               <span>{text}</span>
             </div>
           ))}

@@ -16,6 +16,13 @@ interface Props {
 const SELL_QTYS = [10, 25, 50, 100]
 const BUY_QTYS = [10, 25, 50]
 
+function calcDumpPreview(state: import('../engine/types').GameState, qty: number) {
+  const r = state.market.resources.apple
+  const impact = r.elasticityK * (qty / Math.max(r.volumeAvailable, 1))
+  const newPrice = Math.max(0.05, r.currentPrice * (1 - impact))
+  return { goldEarned: qty * r.currentPrice, newPrice, priceDrop: r.currentPrice - newPrice }
+}
+
 function calcMovingAverage(data: { day: number; price: number }[], window: number) {
   return data.map((point, i) => {
     if (i < window - 1) return { day: point.day, ma: null }
@@ -238,6 +245,30 @@ export function SpotMarket({ state, onSell, onBuy, onContribute }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Dump action */}
+      {playerApples >= 20 && (
+        <div style={{ background: 'rgba(180,60,60,0.08)', border: '1px solid rgba(180,60,60,0.4)', borderRadius: 'var(--radius)', padding: 10 }}>
+          <div style={{ fontSize: '0.75rem', color: '#c96060', marginBottom: 6, fontFamily: 'var(--font-title)', letterSpacing: '0.05em' }}>
+            DUMP — INONDER LE MARCHÉ
+          </div>
+          {(() => {
+            const { goldEarned, newPrice, priceDrop } = calcDumpPreview(state, playerApples)
+            return (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginBottom: 8 }}>
+                Vendre {playerApples} pommes d'un coup → prix {appleMarket.currentPrice.toFixed(2)} → <span style={{ color: '#c96060' }}>{newPrice.toFixed(2)}</span> (−{priceDrop.toFixed(2)}). Gain : <span className="gold-value">+{Math.floor(goldEarned)} or</span>
+              </div>
+            )
+          })()}
+          <button
+            className="btn-secondary"
+            style={{ width: '100%', borderColor: 'rgba(180,60,60,0.5)', color: '#c96060' }}
+            onClick={() => onSell('apple', playerApples)}
+          >
+            Tout vendre — {playerApples} pommes
+          </button>
+        </div>
+      )}
 
       {/* Wonder contribution */}
       {maxContribute > 0 && (
