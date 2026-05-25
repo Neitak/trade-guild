@@ -145,17 +145,26 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
 
         {/* Nodes */}
         {Object.entries(NODE_POSITIONS).map(([nodeId, pos]) => {
-          const owner = getNodeOwner(nodeId)
-          const instanceId = getNodeInstance(nodeId)
-          const defId = getNodeDef(nodeId)
-          const color = getOwnerColor(owner)
+          const mapNode  = map.nodes.find(n => n.id === nodeId)
+          const isLocked = mapNode?.locked ?? false
+          const owner    = isLocked ? undefined : getNodeOwner(nodeId)
+          const instanceId = isLocked ? undefined : getNodeInstance(nodeId)
+          const defId    = isLocked ? undefined : getNodeDef(nodeId)
+          const color    = isLocked ? 'rgba(120,120,140,0.3)' : getOwnerColor(owner)
           const isWonder = nodeId === 'wonder_slot' || nodeId === 'cathedrale_slot'
           const isTower  = nodeId === 'wonder_slot'
           const isCathed = nodeId === 'cathedrale_slot'
 
-          const canBuy   = !owner && !!defId
-          const canShare = owner === 'tex' && !!instanceId
+          const canBuy   = !isLocked && !owner && !!defId
+          const canShare = !isLocked && owner === 'tex' && !!instanceId
           const sharePreview = canShare ? previewBuyShare(state, instanceId!) : null
+
+          // Degradation of owned Tier 1 building
+          const ownedBuilding = instanceId
+            ? (player.buildings.find(b => b.instanceId === instanceId) ?? tex.buildings.find(b => b.instanceId === instanceId))
+            : undefined
+          const degradation = ownedBuilding?.degradation ?? 0
+          const degradPct = Math.round(degradation * 100)
 
           // Wonder-specific progress
           let pPct = 0, tPct = 0
@@ -173,12 +182,13 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
                 style={{ filter: owner ? `drop-shadow(0 0 6px ${color}40)` : undefined }}
               />
 
-              {/* Icon */}
+              {/* Icon — locked nodes show 🔒 instead */}
               <text
                 x={pos.x} y={pos.y + 6}
                 textAnchor="middle"
                 fontSize={isWonder ? 18 : 14}
-              >{pos.icon}</text>
+                opacity={isLocked ? 0.35 : 1}
+              >{isLocked ? '🔒' : pos.icon}</text>
 
               {/* Wonder progress text */}
               {isWonder && (
@@ -193,14 +203,28 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
               )}
 
               {/* Label */}
-              <text x={pos.x} y={pos.y + (isWonder ? 38 : 32)} textAnchor="middle" fontSize={9} fill="var(--text-dim)">
-                {pos.label}
+              <text x={pos.x} y={pos.y + (isWonder ? 38 : 32)} textAnchor="middle" fontSize={9} fill={isLocked ? 'rgba(120,120,140,0.4)' : 'var(--text-dim)'}>
+                {isLocked ? '— verrouillé —' : pos.label}
               </text>
+
+              {/* Degradation indicator (Tier 1 with owner) */}
+              {!isLocked && !isWonder && degradPct >= 15 && (
+                <text x={pos.x} y={pos.y - 36} textAnchor="middle" fontSize={8} fill={degradPct >= 30 ? '#c96060' : '#c9a84c'}>
+                  {degradPct >= 30 ? '🍂' : '🌿'} −{degradPct}%
+                </text>
+              )}
 
               {/* Owner badge (share %) */}
               {owner && instanceId && (
                 <text x={pos.x} y={pos.y - 26} textAnchor="middle" fontSize={8} fill={color}>
                   {renderShareInfo(instanceId)}
+                </text>
+              )}
+
+              {/* Locked node — no buttons */}
+              {isLocked && (
+                <text x={pos.x} y={pos.y + 45} textAnchor="middle" fontSize={8} fill="rgba(120,120,140,0.4)">
+                  Disponible bientôt
                 </text>
               )}
 

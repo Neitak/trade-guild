@@ -1,8 +1,9 @@
-import type { GameState, GameEvent, ResourceId, WonderId } from './types'
+import type { GameState, GameEvent, ResourceId, WonderId, OwnedBuilding, ActiveRumor } from './types'
 import { produceResources } from './buildings'
 import { recoverPrices } from './market'
 import { runTexAI } from './ai'
 import { generateRumors, revealDueRumors } from './rumors'
+import buildingDefs from '../data/buildings.json'
 
 // ─── End of day resolution ────────────────────────────────────────────────────
 
@@ -17,23 +18,29 @@ export function resolveEndOfDay(state: GameState): GameState {
   // 2. Produce resources from all buildings
   s = produceResources(s)
 
+  // 2b. Degrade Tier 1 extractors (progressive slowdown)
+  s = degradeBuildings(s)
+
   // 3. Run Tex AI (buys, sells, builds, contributes to wonder)
   s = runTexAI(s)
 
   // 4. Queue new rumors based on what Tex did today
   s = generateRumors(s)
 
-  // 5. Price recovery + daily snapshot for all resource charts
+  // 5. Unlock nodes narratively (new slots when economy develops)
+  s = unlockNodes(s)
+
+  // 6. Price recovery + daily snapshot for all resource charts
   s = { ...s, market: recoverPrices(s.market, s.day) }
   s = recordDailyPriceSnapshot(s)
 
-  // 6. Update net worth histories
+  // 7. Update net worth histories
   s = updateNetWorth(s)
 
-  // 7. Check win/loss conditions
+  // 8. Check win/loss conditions
   s = checkGameOver(s)
 
-  // 8. End-of-day event marker
+  // 9. End-of-day event marker
   const endEvent: GameEvent = {
     day: s.day,
     actor: 'system',
@@ -170,4 +177,83 @@ function checkGameOver(state: GameState): GameState {
   }
 
   return state
+}
+
+// ─── Dégradation douce des extracteurs Tier 1 ────────────────────────────────
+// Production perd ~0.5%/jour. Plafond 40%. Un verger à jour 30 tourne à ~85%.
+
+function degradeBuildings(state: GameState): GameState {
+  const DEGRADE_PER_DAY = 0.005
+  const MAX_DEGRADATION = 0.40
+  const defsMap: Record<string, any> = Object.fromEntries(
+    (buildingDefs as any[]).map(d => [d.id, d])
+  )
+
+  function applyDegradation(buildings: OwnedBuilding[]): OwnedBuilding[] {
+    return buildings.map(b => {
+      const def = defsMap[b.defId]
+      if (!def?.productionPerDay) return b  // skip Tier 2 (no resource production)
+      const current = b.degradation ?? 0
+      if (current >= MAX_DEGRADATION) return b
+      return { ...b, degradation: parseFloat(Math.min(MAX_DEGRADATION, current + DEGRADE_PER_DAY).toFixed(4)) }
+    })
+  }
+
+  return {
+    ...state,
+    player: { ...state.player, buildings: applyDegradation(state.player.buildings) },
+    tex:    { ...state.tex,    buildings: applyDegradation(state.tex.buildings) },
+  }
+}
+
+// ─── Apparition narrative des nouveaux emplacements ──────────────────────────
+// Les slot_2 se débloquent quand l'économie le justifie.
+
+function unlockNodes(state: GameState): GameState {
+  const allBuildings = [...state.player.buildings, ...state.tex.buildings]
+
+  const UNLOCK_CONDITIONS: Record<string, { condition: () => boolean; message: string }> = {
+    orchard_slot_2: {
+      condition: () => state.day >= 8 && allBuildings.some(b => b.defId === 'orchard'),
+      message: `L'économie s'anime — de nouveaux cultivateurs arrivent au Verger des Collines.`,
+    },
+    scierie_slot_2: {
+      condition: () => state.day >= 8 && allBuildings.some(b => b.defId === 'sawmill'),
+      message: `Les bûcherons affluent en ville — la Scierie des Hauteurs est désormais disponible.`,
+    },
+    market_slot_2: {
+      condition: () => allBuildings.some(b => b.defId === 'fruit_market'),
+      message: `Le commerce des fruits prospère — un nouveau carrefour marchand s'ouvre au Carrefour Nord.`,
+    },
+    menuiserie_slot_2: {
+      condition: () => allBuildings.some(b => b.defId === 'menuiserie'),
+      message: `L'artisanat du bois attire de nouveaux maîtres — la Grande Menuiserie ouvre ses portes.`,
+    },
+  }
+
+  const newRumors: ActiveRumor[] = []
+  const updatedNodes = state.map.nodes.map(node => {
+    if (!node.locked) return node
+    const cond = UNLOCK_CONDITIONS[node.id]
+    if (!cond || !cond.condition()) return node
+    newRumors.push({ day: state.day, text: `📍 ${cond.message}` })
+    return { ...node, locked: false }
+  })
+
+  if (newRumors.length === 0) return state
+
+  return {
+    ...state,
+    map: { nodes: updatedNodes },
+    activeRumors: [...state.activeRumors, ...newRumors],
+    log: [
+      ...state.log,
+      ...newRumors.map(r => ({
+        day: state.day,
+        actor: 'system' as const,
+        type: 'NODE_UNLOCKED' as const,
+        payload: { message: r.text },
+      })),
+    ],
+  }
 }

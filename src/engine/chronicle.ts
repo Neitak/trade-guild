@@ -2,9 +2,12 @@ import type { GameState, GameEvent } from './types'
 
 export interface ChronicleResult {
   title: string
-  moments: [string, string] // exactly 2 key moments
+  moments: string[] // 2–4 key moments narrated by the bard
   advice: string
   archetype: 'investor' | 'trader' | 'manipulator' | 'mixed'
+  finalPlayerWorth: number
+  finalTexWorth: number
+  completedWonder?: string // name of the wonder that ended the game
 }
 
 // ─── Detect player archetype from event log ───────────────────────────────────
@@ -23,68 +26,83 @@ function detectArchetype(log: GameEvent[]): ChronicleResult['archetype'] {
   return 'mixed'
 }
 
-// ─── Find the two most notable moments ───────────────────────────────────────
+// ─── Find 2–4 notable moments ─────────────────────────────────────────────────
 
-function findKeyMoments(state: GameState): [string, string] {
+function findKeyMoments(state: GameState): string[] {
   const log = state.log.filter(e => e.actor === 'player')
   const moments: string[] = []
 
-  // Best sell: highest gold in a single SELL
+  const buildingNames: Record<string, string> = {
+    orchard: 'Verger', fruit_market: 'Marché aux Fruits', sawmill: 'Scierie', menuiserie: 'Menuiserie',
+  }
+  const resourceLabels: Record<string, string> = { apple: 'pommes', wood: 'bois' }
+
+  // 1. Best single sell (by gold earned)
   const bestSell = log
     .filter(e => e.type === 'SELL')
     .sort((a, b) => (b.payload.gold as number) - (a.payload.gold as number))[0]
   if (bestSell) {
+    const res = resourceLabels[bestSell.payload.resourceId as string] ?? 'marchandises'
+    const gold = Math.round(bestSell.payload.gold as number)
+    const price = Number(bestSell.payload.price).toFixed(2)
     moments.push(
-      `Au jour ${bestSell.day}, le barde chante encore la vente de ${bestSell.payload.qty} pommes à ${Number(bestSell.payload.price).toFixed(2)} pièces — ${Math.round(bestSell.payload.gold as number)} pièces d'or en un instant.`
+      `Au jour ${bestSell.day}, le barde chante encore la vente de ${bestSell.payload.qty} ${res} à ${price} pièces — ${gold} or engrangé en un seul geste.`
     )
   }
 
-  // Price crash: biggest single-day price drop
-  const priceHistory = state.market.resources['apple'].priceHistory
-  let biggestDrop = 0
-  let dropDay = 0
-  for (let i = 1; i < priceHistory.length; i++) {
-    const drop = priceHistory[i - 1].price - priceHistory[i].price
-    if (drop > biggestDrop) {
-      biggestDrop = drop
-      dropDay = priceHistory[i].day
+  // 2. Biggest price crash in any resource
+  let biggestDrop = 0, dropDay = 0, dropResource = 'pommes'
+  for (const [resId, market] of Object.entries(state.market.resources)) {
+    const hist = market.priceHistory
+    for (let i = 1; i < hist.length; i++) {
+      const drop = hist[i - 1].price - hist[i].price
+      if (drop > biggestDrop) {
+        biggestDrop = drop
+        dropDay = hist[i].day
+        dropResource = resourceLabels[resId] ?? resId
+      }
     }
   }
-  if (biggestDrop > 0.2) {
+  if (biggestDrop > 0.15) {
     moments.push(
-      `Le jour ${dropDay} restera dans les mémoires : le prix des pommes s'effondra de ${biggestDrop.toFixed(2)} pièce${biggestDrop >= 2 ? 's' : ''}.`
+      `Le jour ${dropDay} restera dans les mémoires : le prix du ${dropResource} s'effondra de ${biggestDrop.toFixed(2)} pièce${biggestDrop >= 2 ? 's' : ''} — le marché avait tremblé.`
     )
   }
 
-  // First building bought
+  // 3. First building — pivotal moment
   const firstBuilding = log.find(e => e.type === 'BUY_BUILDING')
-  if (firstBuilding && moments.length < 2) {
-    const names: Record<string, string> = { orchard: 'Verger', fruit_market: 'Marché aux Fruits', sawmill: 'Scierie', menuiserie: 'Menuiserie' }
-    const name = names[firstBuilding.payload.defId as string] ?? String(firstBuilding.payload.defId)
-    moments.push(`Dès le jour ${firstBuilding.day}, la construction du ${name} marqua le début de l'empire.`)
+  if (firstBuilding) {
+    const name = buildingNames[firstBuilding.payload.defId as string] ?? String(firstBuilding.payload.defId)
+    moments.push(`Dès le jour ${firstBuilding.day}, la construction du ${name} marqua le début de l'empire. L'or s'était mis à travailler.`)
   }
 
-  // Share acquisition
-  const firstShare = log.find(e => e.type === 'BUY_SHARE')
-  if (firstShare && moments.length < 2) {
-    moments.push(
-      `Au jour ${firstShare.day}, la première part du bâtiment de Tex fut acquise — le début d'une mainmise froide et calculée.`
-    )
+  // 4. Hostile takeover (share acquisition)
+  const maxShareEvent = log
+    .filter(e => e.type === 'BUY_SHARE')
+    .sort((a, b) => (b.payload.playerTotalShares as number) - (a.payload.playerTotalShares as number))[0]
+  if (maxShareEvent && moments.length < 4) {
+    const shares = maxShareEvent.payload.playerTotalShares as number
+    const bName = buildingNames[maxShareEvent.payload.defId as string] ?? 'bâtiment'
+    if (shares >= 51) {
+      moments.push(`Au jour ${maxShareEvent.day}, le contrôle du ${bName} de Tex bascula — ${shares}% des parts acquises. Le vertige du pouvoir.`)
+    } else {
+      moments.push(`Au jour ${maxShareEvent.day}, la première part du ${bName} de Tex fut acquise — le début d'une mainmise froide et calculée.`)
+    }
   }
 
-  // Wonder completion (player)
-  const wonderDone = log.find(e => e.type === 'WONDER_COMPLETE' && e.actor === 'player')
-  if (wonderDone && moments.length < 2) {
+  // 5. Wonder completion
+  const wonderDone = log.find(e => e.type === 'WONDER_COMPLETE')
+  if (wonderDone && moments.length < 4) {
     const wName = wonderDone.payload.wonderId === 'grande_cathedrale' ? 'Grande Cathédrale' : 'Tour de Magie'
-    moments.push(`Au jour ${wonderDone.day}, la ${wName} s'éleva enfin — et la victoire fut consommée.`)
+    moments.push(`Au jour ${wonderDone.day}, la ${wName} s'éleva enfin — la victoire fut consommée dans la pierre et l'or.`)
   }
 
   // Fallback
-  while (moments.length < 2) {
-    moments.push(`Les chroniques restent floues sur cette journée-là.`)
+  if (moments.length === 0) {
+    moments.push(`Les chroniques restent floues sur cette partie. Mais les pièces d'or, elles, ne mentent pas.`)
   }
 
-  return [moments[0], moments[1]]
+  return moments.slice(0, 4) // max 4 moments
 }
 
 // ─── Advice by archetype ──────────────────────────────────────────────────────
@@ -144,5 +162,16 @@ export function generateChronicle(state: GameState): ChronicleResult {
   const moments = findKeyMoments(state)
   const advice = getAdvice(archetype, won)
 
-  return { title, moments, advice, archetype }
+  const finalPlayerWorth = state.player.netWorthHistory.at(-1)?.value ?? Math.floor(state.player.gold)
+  const finalTexWorth    = state.tex.netWorthHistory.at(-1)?.value ?? Math.floor(state.tex.gold)
+
+  return {
+    title,
+    moments,
+    advice,
+    archetype,
+    finalPlayerWorth,
+    finalTexWorth,
+    completedWonder: completedWonder?.name,
+  }
 }

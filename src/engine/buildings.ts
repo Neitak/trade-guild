@@ -142,12 +142,13 @@ export function produceResources(state: GameState): GameState {
   for (const building of s.player.buildings) {
     const def = getBuildingDef(building.defId)
     if (def.produces && def.productionPerDay > 0) {
-      const produced = Math.round(def.productionPerDay * (building.shares / 100))
+      const degradation = building.degradation ?? 0
+      const produced = Math.round(def.productionPerDay * (building.shares / 100) * (1 - degradation))
       const event: GameEvent = {
         day: s.day,
         actor: 'player',
         type: 'PRODUCTION',
-        payload: { buildingId: building.defId, resource: def.produces, qty: produced },
+        payload: { buildingId: building.defId, resource: def.produces, qty: produced, degradation },
       }
       s = {
         ...s,
@@ -183,7 +184,8 @@ export function produceResources(state: GameState): GameState {
   for (const building of s.tex.buildings) {
     const def = getBuildingDef(building.defId)
     if (def.produces && def.productionPerDay > 0) {
-      const produced = Math.round(def.productionPerDay * (building.shares / 100))
+      const degradation = building.degradation ?? 0
+      const produced = Math.round(def.productionPerDay * (building.shares / 100) * (1 - degradation))
       s = {
         ...s,
         tex: {

@@ -43,6 +43,7 @@ export type GameEventType =
   | 'PRODUCTION'
   | 'REVENUE'
   | 'GAME_OVER'
+  | 'NODE_UNLOCKED'
 
 export interface GameEvent {
   day: number
@@ -86,6 +87,7 @@ export interface OwnedBuilding {
   defId: BuildingId
   instanceId: string
   shares: number // percentage owned by this guild (0–100)
+  degradation?: number // 0.0 → 0.4 — Tier 1 extractors only, reduces production over time
 }
 
 export interface GuildState {
@@ -122,6 +124,7 @@ export interface MapNode {
   buildingDefId?: BuildingId
   ownedBy?: 'player' | 'tex'
   buildingInstanceId?: string
+  locked?: boolean // true = not yet available, unlocks via narrative condition
 }
 
 export interface MapState {
