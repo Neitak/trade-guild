@@ -23,6 +23,12 @@ export function EndOfDay({ state, onEndDay }: Props) {
         return `Vous avez vendu ${e.payload.qty} pommes → +${Math.floor(e.payload.gold as number)} or`
       case 'BUY':
         return `Vous avez acheté ${e.payload.qty} pommes`
+      case 'BUY_SHARE': {
+        const shares = e.payload.playerTotalShares as number
+        const building = e.payload.defId === 'orchard' ? 'verger' : 'marché'
+        const ctrl = shares >= 51 ? ' — CONTRÔLE ACQUIS !' : ''
+        return `Vous détenez ${shares}% du ${building} de Tex (coût : ${e.payload.cost} or)${ctrl}`
+      }
       case 'WONDER_PROGRESS':
         return `Vous avez apporté ${e.payload.contributed} pommes à la Tour de Magie (${e.payload.total}/${e.payload.required})`
       case 'WONDER_COMPLETE':
@@ -39,6 +45,10 @@ export function EndOfDay({ state, onEndDay }: Props) {
         return `Tex a vendu ${e.payload.qty} pommes sur le marché — prix en baisse`
       case 'BUY':
         return `Tex a acheté ${e.payload.qty} pommes — il accumule`
+      case 'SELL_SHARE': {
+        const building = e.payload.defId === 'orchard' ? 'verger' : 'marché'
+        return `Tex a racheté ${e.payload.transferredShares}% de son ${building} — il contre-attaque`
+      }
       case 'WONDER_PROGRESS':
         return `Tex a apporté ${e.payload.contributed} pommes à la Tour (${e.payload.total}/${e.payload.required}) !`
       case 'WONDER_COMPLETE':

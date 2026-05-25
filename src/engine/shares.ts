@@ -59,6 +59,16 @@ export function buyShare(state: GameState, texInstanceId: string): GameState {
   const playerShares =
     (existingPlayerBuilding?.shares ?? 0) + transferredShares
 
+  // Transfer map ownership when player crosses 51%
+  const controlTransferred = playerShares >= 51
+  const updatedMap = controlTransferred
+    ? {
+        nodes: state.map.nodes.map(n =>
+          n.buildingInstanceId === texInstanceId ? { ...n, ownedBy: 'player' as const } : n
+        ),
+      }
+    : state.map
+
   const event: GameEvent = {
     day: state.day,
     actor: 'player',
@@ -83,6 +93,7 @@ export function buyShare(state: GameState, texInstanceId: string): GameState {
       ...state.tex,
       buildings: updatedTexBuildings,
     },
+    map: updatedMap,
     log: [...state.log, event],
   }
 }
@@ -112,11 +123,25 @@ export function texBuyBackShare(state: GameState, instanceId: string): GameState
       : b
   )
 
+  const texBuilding2 = updatedTexBuildings.find(b => b.instanceId === instanceId)
+  const texSharesAfter = texBuilding2?.shares ?? 0
+  const texRegainsControl = texSharesAfter >= 51
+
+  const updatedMap2 = texRegainsControl
+    ? {
+        nodes: state.map.nodes.map(n =>
+          n.buildingInstanceId === instanceId ? { ...n, ownedBy: 'tex' as const } : n
+        ),
+      }
+    : state.map
+
+  const buybackBuilding = state.tex.buildings.find(b => b.instanceId === instanceId)
+
   const event: GameEvent = {
     day: state.day,
     actor: 'tex',
     type: 'SELL_SHARE',
-    payload: { instanceId, transferredShares, cost },
+    payload: { instanceId, defId: buybackBuilding?.defId, transferredShares, cost },
   }
 
   return {
@@ -130,6 +155,7 @@ export function texBuyBackShare(state: GameState, instanceId: string): GameState
       ...state.player,
       buildings: updatedPlayerBuildings,
     },
+    map: updatedMap2,
     log: [...state.log, event],
   }
 }
