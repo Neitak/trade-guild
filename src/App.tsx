@@ -13,9 +13,19 @@ import { WorldMap } from './components/WorldMap'
 import { EndOfDay } from './components/EndOfDay'
 import { Chronicle } from './components/Chronicle'
 
+interface DayRevealData {
+  completedDay: number
+  nextDay: number
+  events: GameState['log']
+  goldBefore: number
+  goldAfter: number
+  rumors: string[]
+}
+
 export default function App() {
   const [state, setState] = useState<GameState>(() => initGame())
   const [chronicle, setChronicle] = useState<ChronicleResult | null>(null)
+  const [dayReveal, setDayReveal] = useState<DayRevealData | null>(null)
 
   useEffect(() => {
     (window as any).__GAME_STATE__ = state
@@ -52,7 +62,12 @@ export default function App() {
   function handleEndDay() {
     setState(prev => {
       if (prev.phase !== 'playing') return prev
-      const next = resolveEndOfDay(prev)
+      const goldBefore   = prev.player.gold
+      const completedDay = prev.day
+      const next         = resolveEndOfDay(prev)
+      const dayEvents    = next.log.filter(e => e.day === completedDay && e.actor !== 'system')
+      const dayRumors    = next.activeRumors.filter(r => r.day === completedDay).map(r => r.text)
+      setDayReveal({ completedDay, nextDay: next.day, events: dayEvents, goldBefore, goldAfter: next.player.gold, rumors: dayRumors })
       if (next.phase !== 'playing') {
         setChronicle(generateChronicle(next))
       }
@@ -60,8 +75,13 @@ export default function App() {
     })
   }
 
+  function handleDismissReveal() {
+    setDayReveal(null)
+  }
+
   function handleNewGame() {
     setChronicle(null)
+    setDayReveal(null)
     setState(initGame())
   }
 
@@ -122,11 +142,30 @@ export default function App() {
           />
         </div>
 
-        {/* End of Day — spans full width */}
+        {/* End of Day button — spans full width */}
         <div style={{ gridColumn: '1 / -1' }}>
-          <EndOfDay state={state} onEndDay={handleEndDay} />
+          <button
+            className="btn-primary"
+            style={{ width: '100%', padding: '14px', fontSize: '1rem', letterSpacing: '0.08em' }}
+            onClick={handleEndDay}
+          >
+            Terminer cette journée →
+          </button>
         </div>
       </div>
+
+      {/* Day reveal overlay */}
+      {dayReveal && !chronicle && (
+        <EndOfDay
+          completedDay={dayReveal.completedDay}
+          nextDay={dayReveal.nextDay}
+          events={dayReveal.events}
+          goldBefore={dayReveal.goldBefore}
+          goldAfter={dayReveal.goldAfter}
+          rumors={dayReveal.rumors}
+          onDismiss={handleDismissReveal}
+        />
+      )}
 
       {/* Chronicle overlay */}
       {chronicle && (
