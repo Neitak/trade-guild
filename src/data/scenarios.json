@@ -1,0 +1,14 @@
+[
+  {
+    "id": "default",
+    "openingSentence": "Tex vient d'arriver en ville avec 500 pièces d'or. Toi, tu as une pomme et 10 pièces d'or. Objectif : ériger la Tour de Magie avant lui.",
+    "player": {
+      "gold": 10,
+      "inventory": { "apple": 1 }
+    },
+    "tex": {
+      "gold": 500,
+      "inventory": {}
+    }
+  }
+]

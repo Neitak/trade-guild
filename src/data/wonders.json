@@ -1,0 +1,8 @@
+[
+  {
+    "id": "tower_of_magic",
+    "name": "Tour de Magie",
+    "description": "Celui qui érige la Tour de Magie remporte la partie.",
+    "requiredResources": { "apple": 800 }
+  }
+]
