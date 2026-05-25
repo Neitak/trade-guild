@@ -93,7 +93,7 @@ export function SpotMarket({ state, onSell, onBuy, onContribute }: Props) {
       </div>
 
       {/* Price chart */}
-      <div style={{ flex: 1, minHeight: 160 }}>
+      <div style={{ flex: 1, minHeight: 160, minWidth: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />

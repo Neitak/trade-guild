@@ -4,7 +4,7 @@
     "name": "Pomme",
     "basePrice": 1.0,
     "equilibriumPrice": 1.0,
-    "elasticityK": 0.04,
-    "startingVolume": 100
+    "elasticityK": 0.20,
+    "startingVolume": 80
   }
 ]

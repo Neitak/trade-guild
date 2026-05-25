@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { GameState, ResourceId } from './engine/types'
 import { initGame } from './engine/init'
 import { resolveEndOfDay, contributeToWonder } from './engine/day'
@@ -16,6 +16,10 @@ import { Chronicle } from './components/Chronicle'
 export default function App() {
   const [state, setState] = useState<GameState>(() => initGame())
   const [chronicle, setChronicle] = useState<ChronicleResult | null>(null)
+
+  useEffect(() => {
+    (window as any).__GAME_STATE__ = state
+  }, [state])
 
   // Actions
   function dispatch(updater: (s: GameState) => GameState) {

@@ -3,41 +3,31 @@ import { initGame } from '../engine/init'
 import { resolveEndOfDay, contributeToWonder } from '../engine/day'
 import { buyBuilding } from '../engine/buildings'
 import { sellToMarket } from '../engine/market'
+import { buyShare } from '../engine/shares'
 import { generateChronicle } from '../engine/chronicle'
 import type { GameState, SimConfig, SimResult, BatchStats } from '../engine/types'
 import * as fs from 'fs'
 import * as path from 'path'
 
-// ─── Simple player bot (investor archetype) ───────────────────────────────────
+// ─── Player bot — baseline: contribute surplus to wonder ─────────────────────
 
 function runPlayerBot(state: GameState): GameState {
   let s = state
   const hasOrchard = s.player.buildings.some(b => b.defId === 'orchard')
 
-  // Phase 1: no orchard yet — sell everything to fund one
+  // Phase 1: buy orchard
   if (!hasOrchard) {
     const apples = s.player.inventory['apple'] ?? 0
     if (apples > 0) s = sellToMarket(s, 'apple', apples)
-    s = buyBuilding(s, 'orchard') // buyBuilding handles affordability check internally
+    s = buyBuilding(s, 'orchard')
     return s
   }
 
-  // Phase 2: orchard running — decide between selling vs contributing
+  // Phase 2: contribute surplus to wonder (keep 20 as buffer)
   const playerApples = s.player.inventory['apple'] ?? 0
   const wonderNeeded = (s.wonder.requiredResources['apple'] ?? 0) - (s.wonder.playerContributed['apple'] ?? 0)
-  const applePrice = s.market.resources['apple'].currentPrice
-  const equilibrium = s.market.resources['apple'].equilibriumPrice
-
-  // Sell when price is above equilibrium (opportunistic)
-  if (playerApples > 40 && applePrice > equilibrium * 1.05) {
-    const toSell = Math.floor(playerApples * 0.4)
-    if (toSell > 0) s = sellToMarket(s, 'apple', toSell)
-  }
-
-  // Contribute to wonder with surplus (keep 20 as buffer)
-  const applesNow = s.player.inventory['apple'] ?? 0
-  if (wonderNeeded > 0 && applesNow > 20) {
-    const contribute = Math.min(applesNow - 20, wonderNeeded)
+  if (wonderNeeded > 0 && playerApples > 20) {
+    const contribute = Math.min(playerApples - 20, wonderNeeded)
     if (contribute > 0) s = contributeToWonder(s, contribute)
   }
 

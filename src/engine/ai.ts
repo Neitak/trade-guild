@@ -1,61 +1,58 @@
 import type { GameState, BuildingId } from './types'
 import { texBuyFromMarket, texSellToMarket } from './market'
 import { texBuyBuilding } from './buildings'
+import { texBuyBackShare } from './shares'
 
 // ─── Tex decision tree (evaluated once per end-of-day) ───────────────────────
 
 export function runTexAI(state: GameState): GameState {
   let s = state
 
-  // 1. Try to expand: buy orchard if no buildings and can afford it
+  // 1. Buy orchard on first day
   const hasOrchard = s.tex.buildings.some(b => b.defId === 'orchard')
   if (!hasOrchard && s.tex.gold >= 50) {
     s = texBuyBuilding(s, 'orchard')
   }
 
-  // 2. Try to upgrade: buy fruit_market if orchard exists and has enough apples
+  // 2. Race to buy fruit_market: buy pommes from spot if not enough yet
   const hasFruitMarket = s.tex.buildings.some(b => b.defId === 'fruit_market')
-  const texApples = s.tex.inventory['apple'] ?? 0
-  if (hasOrchard && !hasFruitMarket && texApples >= 200) {
-    s = texBuyBuilding(s, 'fruit_market')
-  }
-
-  // 3. Sell apples when price is above equilibrium (profit-taking)
-  const appleMarket = s.market.resources['apple']
-  const currentApples = s.tex.inventory['apple'] ?? 0
-  if (appleMarket.currentPrice > appleMarket.equilibriumPrice * 1.1 && currentApples > 40) {
-    const qtyToSell = Math.floor(currentApples * 0.4)
-    s = texSellToMarket(s, 'apple', qtyToSell)
-  }
-
-  // 4. Buy apples when price is below equilibrium (accumulate)
-  const updatedAppleMarket = s.market.resources['apple']
-  if (
-    updatedAppleMarket.currentPrice < updatedAppleMarket.equilibriumPrice * 0.85 &&
-    s.tex.gold >= 30 &&
-    updatedAppleMarket.volumeAvailable > 0
-  ) {
-    const budget = Math.min(s.tex.gold * 0.3, 60)
-    const qty = Math.floor(budget / updatedAppleMarket.currentPrice)
+  const texApplesCurrent = s.tex.inventory['apple'] ?? 0
+  if (hasOrchard && !hasFruitMarket && texApplesCurrent < 120 && s.tex.gold > 80) {
+    const still_need = 120 - texApplesCurrent
+    const qty = Math.min(still_need, 15, s.market.resources['apple'].volumeAvailable,
+      Math.floor(s.tex.gold * 0.08))
     if (qty > 0) s = texBuyFromMarket(s, 'apple', qty)
   }
 
-  // 5. Sell a small portion of apples for gold (not a hoarder, but wonder-focused)
-  const texApplesStock = s.tex.inventory['apple'] ?? 0
-  const applePrice = s.market.resources['apple'].currentPrice
-  if (texApplesStock > 80 && applePrice >= s.market.resources['apple'].equilibriumPrice * 1.05) {
-    const toSell = Math.floor(texApplesStock * 0.2)
-    if (toSell > 0) s = texSellToMarket(s, 'apple', toSell)
+  // 3. Buy fruit_market once threshold reached
+  const texApplesForBuild = s.tex.inventory['apple'] ?? 0
+  if (hasOrchard && !hasFruitMarket && texApplesForBuild >= 120) {
+    s = texBuyBuilding(s, 'fruit_market')
   }
 
-  // 6. Contribute to wonder — Tex builds his own tower from day 10
+  // 4. Sell apples at high price (profit-taking, only when above threshold)
+  const appleMarket = s.market.resources['apple']
+  const texApplesNow = s.tex.inventory['apple'] ?? 0
+  if (appleMarket.currentPrice > appleMarket.equilibriumPrice * 1.15 && texApplesNow > 40) {
+    const qtyToSell = Math.floor(texApplesNow * 0.3)
+    if (qtyToSell > 0) s = texSellToMarket(s, 'apple', qtyToSell)
+  }
+
+  // 5. Contribute to wonder — starts from day 10, keep 20 as buffer
   const wonderAppleNeeded =
     (s.wonder.requiredResources['apple'] ?? 0) - (s.wonder.texContributed['apple'] ?? 0)
-  const texApplesNow = s.tex.inventory['apple'] ?? 0
-  if (wonderAppleNeeded > 0 && texApplesNow >= 50 && s.day >= 10) {
-    // Keep 30 apples as buffer, contribute the rest
-    const contribute = Math.max(0, Math.min(texApplesNow - 30, wonderAppleNeeded))
+  const texApplesWonder = s.tex.inventory['apple'] ?? 0
+  if (wonderAppleNeeded > 0 && texApplesWonder >= 40 && s.day >= 10) {
+    const contribute = Math.max(0, Math.min(texApplesWonder - 20, wonderAppleNeeded))
     if (contribute > 0) s = contributeToWonderTex(s, contribute)
+  }
+
+  // 6. Buy back shares player took — only when gold buffer is solid (defensive, not instant)
+  const stolenBuilding = s.player.buildings.find(pb =>
+    s.tex.buildings.some(tb => tb.instanceId === pb.instanceId)
+  )
+  if (stolenBuilding && s.tex.gold >= 120) {
+    s = texBuyBackShare(s, stolenBuilding.instanceId)
   }
 
   return s

@@ -11,7 +11,7 @@
     "id": "fruit_market",
     "name": "Marché aux Fruits",
     "tier": 2,
-    "costResources": { "apple": 200 },
+    "costResources": { "apple": 120 },
     "productionPerDay": 0,
     "revenuePerDay": 30
   }
