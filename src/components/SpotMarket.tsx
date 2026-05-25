@@ -84,8 +84,8 @@ export function SpotMarket({ state, onSell, onBuy, onContribute }: Props) {
             style={{
               padding: '4px 14px',
               fontSize: '0.75rem',
-              fontFamily: 'var(--font-title)',
-              letterSpacing: '0.06em',
+              fontFamily: 'var(--font-ui)',
+              letterSpacing: '0.04em',
               borderColor: activeResource === 'apple' ? 'var(--accent)' : undefined,
               color: activeResource === 'apple' ? 'var(--accent)' : undefined,
             }}
@@ -96,8 +96,8 @@ export function SpotMarket({ state, onSell, onBuy, onContribute }: Props) {
             style={{
               padding: '4px 14px',
               fontSize: '0.75rem',
-              fontFamily: 'var(--font-title)',
-              letterSpacing: '0.06em',
+              fontFamily: 'var(--font-ui)',
+              letterSpacing: '0.04em',
               borderColor: activeResource === 'wood' ? '#8a9' : undefined,
               color: activeResource === 'wood' ? '#8ab' : undefined,
             }}
@@ -120,7 +120,7 @@ export function SpotMarket({ state, onSell, onBuy, onContribute }: Props) {
 
       {/* Current price */}
       <div style={{ display: 'flex', gap: 14, alignItems: 'baseline' }}>
-        <span style={{ fontSize: '1.5rem', fontFamily: 'var(--font-title)', color: 'var(--accent)' }}>
+        <span style={{ fontSize: '1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
           {resourceMarket.currentPrice.toFixed(2)}
         </span>
         <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>

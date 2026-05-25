@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=IM+Fell+English&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Marcellus&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Fira+Code:wght@400;500&display=swap');
 
 :root {
   --bg: #1a1a2e;
@@ -16,8 +16,10 @@
   --player-color: #4c8ac9;
   --border: rgba(201, 168, 76, 0.2);
   --radius: 8px;
-  --font-title: 'Cinzel', Georgia, serif;
-  --font-body: 'IM Fell English', Georgia, serif;
+  --font-title: 'Cinzel Decorative', Georgia, serif;
+  --font-ui:    'Marcellus', Georgia, serif;
+  --font-body:  'EB Garamond', Georgia, serif;
+  --font-mono:  'Fira Code', 'Courier New', monospace;
 }
 
 * {
@@ -54,7 +56,7 @@ button:disabled {
 .btn-primary {
   background: linear-gradient(135deg, var(--accent), #a07830);
   color: #1a1000;
-  font-family: var(--font-title);
+  font-family: var(--font-ui);
   font-weight: 600;
   font-size: 0.9rem;
   letter-spacing: 0.05em;
@@ -72,9 +74,9 @@ button:disabled {
 .btn-secondary {
   background: var(--bg-card);
   color: var(--accent);
-  font-family: var(--font-title);
+  font-family: var(--font-ui);
   font-size: 0.8rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   padding: 6px 14px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -95,7 +97,7 @@ button:disabled {
 
 .gold-value {
   color: var(--accent);
-  font-family: var(--font-title);
+  font-family: var(--font-mono);
   font-weight: 600;
 }
 

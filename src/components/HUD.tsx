@@ -43,7 +43,7 @@ export function HUD({ state }: Props) {
 
       {/* Gold */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: '1.8rem', fontFamily: 'var(--font-title)', fontWeight: 600, color: 'var(--accent)', lineHeight: 1 }}>
+        <span style={{ fontSize: '1.8rem', fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--accent)', lineHeight: 1 }}>
           {Math.floor(player.gold)}
         </span>
         <span style={{ color: 'var(--accent-dim)', fontSize: '0.85rem' }}>or</span>
@@ -51,16 +51,16 @@ export function HUD({ state }: Props) {
 
       {/* Apple inventory */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span style={{ fontSize: '1.05rem', fontFamily: 'var(--font-title)', color: 'var(--text)' }}>{playerApples}</span>
+        <span style={{ fontSize: '1.05rem', fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{playerApples}</span>
         <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>🍎</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>({applePrice.toFixed(2)})</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>({applePrice.toFixed(2)})</span>
       </div>
 
       {/* Wood inventory */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span style={{ fontSize: '1.05rem', fontFamily: 'var(--font-title)', color: 'var(--text)' }}>{playerWood}</span>
+        <span style={{ fontSize: '1.05rem', fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{playerWood}</span>
         <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>🪵</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>({woodPrice.toFixed(2)})</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>({woodPrice.toFixed(2)})</span>
       </div>
 
       <div style={{ flex: 1 }} />
@@ -93,8 +93,8 @@ export function HUD({ state }: Props) {
 
       {/* Tex status */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-        <span>Tex : <span style={{ color: 'var(--tex-color)' }}>{Math.floor(tex.gold)} or</span></span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{texApples} 🍎  {texWood} 🪵</span>
+        <span>Tex : <span style={{ color: 'var(--tex-color)', fontFamily: 'var(--font-mono)' }}>{Math.floor(tex.gold)} or</span></span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>{texApples} 🍎  {texWood} 🪵</span>
       </div>
     </div>
   )
