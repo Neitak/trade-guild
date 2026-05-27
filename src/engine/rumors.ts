@@ -67,6 +67,7 @@ function buildRumor(event: GameEvent, revealOnDay: number): PendingRumor | null 
 // ─── Called at end of day to queue new rumors ─────────────────────────────────
 
 export function generateRumors(state: GameState): GameState {
+  // Flavor text rumors only generated for Tex (the primary named rival)
   const todayTexEvents = state.log.filter(e => e.actor === 'tex' && e.day === state.day)
 
   // One rumor per event type per day — no duplicates

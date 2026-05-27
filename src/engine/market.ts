@@ -1,4 +1,12 @@
-import type { GameState, GameEvent, ResourceId, MarketState, ResourceMarket } from './types'
+import type { GameState, GameEvent, ResourceId, MarketState, ResourceMarket, BuildingId, GuildId } from './types'
+import { getRival, updateRival } from './types'
+
+const APPLE_PRODUCERS: BuildingId[] = ['orchard']
+const WOOD_PRODUCERS:  BuildingId[] = ['sawmill']
+
+function producerDefsFor(id: ResourceId): BuildingId[] {
+  return id === 'apple' ? APPLE_PRODUCERS : WOOD_PRODUCERS
+}
 
 // ─── Price mechanics ──────────────────────────────────────────────────────────
 
@@ -21,18 +29,42 @@ function calcPriceAfterBuy(market: ResourceMarket, qty: number): number {
 }
 
 /**
- * Daily price recovery toward equilibrium (15% per day).
+ * Daily price recovery toward equilibrium + random walk noise.
+ * Also adjusts equilibriumPrice based on extractor degradation (supply signal).
  */
-export function recoverPrices(market: MarketState, day: number): MarketState {
-  const resources = { ...market.resources }
+export function recoverPrices(state: GameState): MarketState {
+  const allBuildings = [...state.player.buildings, ...state.rivals.flatMap(r => r.buildings)]
+  const resources = { ...state.market.resources }
+
   for (const id of Object.keys(resources) as ResourceId[]) {
     const r = resources[id]
-    const recovered = r.currentPrice + (r.equilibriumPrice - r.currentPrice) * 0.15
+
+    // Degradation → supply signal: equilibriumPrice rises as extractors degrade
+    const producerIds = producerDefsFor(id)
+    const extractors  = allBuildings.filter(b => producerIds.includes(b.defId))
+    const avgDegradation = extractors.length > 0
+      ? extractors.reduce((sum, b) => sum + (b.degradation ?? 0), 0) / extractors.length
+      : 0
+    const newEquilibrium = r.baseEquilibriumPrice * (1 + avgDegradation)
+
+    // Recover toward new equilibrium (15%/day)
+    const recovered = r.currentPrice + (newEquilibrium - r.currentPrice) * 0.15
+
+    // Random walk noise — slight upward bias (+2% net drift)
+    const noise    = (Math.random() - 0.48) * r.volatility
+    const withNoise = recovered * (1 + noise)
+
+    // Clamp: 30% to 250% of baseEquilibriumPrice
+    const clamped = Math.max(
+      r.baseEquilibriumPrice * 0.30,
+      Math.min(r.baseEquilibriumPrice * 2.50, withNoise)
+    )
+
     resources[id] = {
       ...r,
-      currentPrice: Math.max(0.05, recovered),
-      // Replenish some volume each day
-      volumeAvailable: Math.min(r.volumeAvailable + 30, 300),
+      currentPrice:     Math.max(0.05, clamped),
+      equilibriumPrice: newEquilibrium,
+      volumeAvailable:  Math.min(r.volumeAvailable + 30, 300),
     }
   }
   return { resources }
@@ -135,38 +167,34 @@ export function buyFromMarket(
   }
 }
 
-// ─── Tex market actions (internal — used by ai.ts) ────────────────────────────
+// ─── Rival market actions (internal — used by ai.ts) ─────────────────────────
 
-export function texSellToMarket(
+export function rivalSellToMarket(
   state: GameState,
+  guildId: GuildId,
   resourceId: ResourceId,
   qty: number
 ): GameState {
+  const rival    = getRival(state, guildId)
   const resource = state.market.resources[resourceId]
-  const available = state.tex.inventory[resourceId] ?? 0
+  const available = rival.inventory[resourceId] ?? 0
   const actualQty = Math.min(qty, available)
   if (actualQty <= 0) return state
 
-  const newPrice = calcPriceAfterSell(resource, actualQty)
+  const newPrice   = calcPriceAfterSell(resource, actualQty)
   const goldEarned = actualQty * resource.currentPrice
 
   const event: GameEvent = {
     day: state.day,
-    actor: 'tex',
+    actor: guildId,
     type: 'SELL',
     payload: { resourceId, qty: actualQty, price: resource.currentPrice, gold: goldEarned },
   }
 
+  const updatedRival = { ...rival, gold: rival.gold + goldEarned, inventory: { ...rival.inventory, [resourceId]: available - actualQty } }
+
   return {
-    ...state,
-    tex: {
-      ...state.tex,
-      gold: state.tex.gold + goldEarned,
-      inventory: {
-        ...state.tex.inventory,
-        [resourceId]: available - actualQty,
-      },
-    },
+    ...updateRival(state, updatedRival),
     market: {
       resources: {
         ...state.market.resources,
@@ -174,10 +202,7 @@ export function texSellToMarket(
           ...resource,
           currentPrice: newPrice,
           volumeAvailable: resource.volumeAvailable + actualQty,
-          priceHistory: [
-            ...resource.priceHistory,
-            { day: state.day, price: newPrice, texMarker: true },
-          ],
+          priceHistory: [...resource.priceHistory, { day: state.day, price: newPrice, texMarker: guildId === 'tex' }],
         },
       },
     },
@@ -185,35 +210,31 @@ export function texSellToMarket(
   }
 }
 
-export function texBuyFromMarket(
+export function rivalBuyFromMarket(
   state: GameState,
+  guildId: GuildId,
   resourceId: ResourceId,
   qty: number
 ): GameState {
+  const rival    = getRival(state, guildId)
   const resource = state.market.resources[resourceId]
   const actualQty = Math.min(qty, resource.volumeAvailable)
   const cost = actualQty * resource.currentPrice
-  if (actualQty <= 0 || state.tex.gold < cost) return state
+  if (actualQty <= 0 || rival.gold < cost) return state
 
   const newPrice = calcPriceAfterBuy(resource, actualQty)
 
   const event: GameEvent = {
     day: state.day,
-    actor: 'tex',
+    actor: guildId,
     type: 'BUY',
     payload: { resourceId, qty: actualQty, price: resource.currentPrice, cost },
   }
 
+  const updatedRival = { ...rival, gold: rival.gold - cost, inventory: { ...rival.inventory, [resourceId]: (rival.inventory[resourceId] ?? 0) + actualQty } }
+
   return {
-    ...state,
-    tex: {
-      ...state.tex,
-      gold: state.tex.gold - cost,
-      inventory: {
-        ...state.tex.inventory,
-        [resourceId]: (state.tex.inventory[resourceId] ?? 0) + actualQty,
-      },
-    },
+    ...updateRival(state, updatedRival),
     market: {
       resources: {
         ...state.market.resources,
@@ -221,16 +242,19 @@ export function texBuyFromMarket(
           ...resource,
           currentPrice: newPrice,
           volumeAvailable: Math.max(0, resource.volumeAvailable - actualQty),
-          priceHistory: [
-            ...resource.priceHistory,
-            { day: state.day, price: newPrice, texMarker: true },
-          ],
+          priceHistory: [...resource.priceHistory, { day: state.day, price: newPrice, texMarker: guildId === 'tex' }],
         },
       },
     },
     log: [...state.log, event],
   }
 }
+
+// Backward compat aliases (used by shares.ts)
+/** @deprecated Use rivalSellToMarket */
+export const texSellToMarket = (s: GameState, r: ResourceId, q: number) => rivalSellToMarket(s, 'tex', r, q)
+/** @deprecated Use rivalBuyFromMarket */
+export const texBuyFromMarket = (s: GameState, r: ResourceId, q: number) => rivalBuyFromMarket(s, 'tex', r, q)
 
 // ─── Preview helpers (for UI tooltips) ───────────────────────────────────────
 

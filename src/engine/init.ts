@@ -1,4 +1,5 @@
-import type { GameState, MapNode, ResourceId } from './types'
+import type { GameState, MapNode, ResourceId, GuildState } from './types'
+import { GUILD_COLORS } from './types'
 import resourceDefs from '../data/resources.json'
 import wonderDefs from '../data/wonders.json'
 import scenarioDefs from '../data/scenarios.json'
@@ -34,8 +35,21 @@ export function initGame(scenarioId?: string): GameState {
   const towerDef     = wDefs.find(w => w.id === 'tower_of_magic')!
   const cathedraleDef = wDefs.find(w => w.id === 'grande_cathedrale')!
 
-  // Tex randomly picks apple or wood filière at game start
-  const texResource: ResourceId = Math.random() < 0.5 ? 'apple' : 'wood'
+  function makeRival(id: 'tex' | 'sam' | 'rita', name: string, gold: number): GuildState {
+    return {
+      id,
+      name,
+      color: GUILD_COLORS[id],
+      gold,
+      inventory: { apple: 0, wood: 0 },
+      buildings: [],
+      netWorthHistory: [],
+    }
+  }
+
+  const texResource:  ResourceId = Math.random() < 0.5 ? 'apple' : 'wood'
+  const samResource:  ResourceId = Math.random() < 0.5 ? 'apple' : 'wood'
+  const ritaResource: ResourceId = Math.random() < 0.5 ? 'apple' : 'wood'
 
   return {
     day: 0,
@@ -43,6 +57,8 @@ export function initGame(scenarioId?: string): GameState {
     scenario: scenario.openingSentence,
     player: {
       id: 'player',
+      name: 'Vous',
+      color: GUILD_COLORS['player'],
       gold: scenario.player.gold,
       inventory: {
         apple: scenario.player.inventory.apple ?? 0,
@@ -51,32 +67,31 @@ export function initGame(scenarioId?: string): GameState {
       buildings: [],
       netWorthHistory: [],
     },
-    tex: {
-      id: 'tex',
-      gold: scenario.tex.gold,
-      inventory: {
-        apple: scenario.tex.inventory.apple ?? 0,
-        wood:  scenario.tex.inventory.wood  ?? 0,
-      },
-      buildings: [],
-      netWorthHistory: [],
-    },
+    rivals: [
+      makeRival('tex',  'Tex le Malin',   scenario.tex.gold),
+      makeRival('sam',  'Sam la Ruse',    scenario.tex.gold),
+      makeRival('rita', 'Rita la Pieuvre', scenario.tex.gold),
+    ],
     market: {
       resources: {
         apple: {
           resourceId: 'apple',
-          currentPrice:    appleDef.basePrice,
-          equilibriumPrice: appleDef.equilibriumPrice,
-          elasticityK:     appleDef.elasticityK,
-          volumeAvailable: appleDef.startingVolume,
+          currentPrice:         appleDef.basePrice,
+          equilibriumPrice:     appleDef.equilibriumPrice,
+          baseEquilibriumPrice: appleDef.equilibriumPrice,
+          volatility:           appleDef.volatility ?? 0.10,
+          elasticityK:          appleDef.elasticityK,
+          volumeAvailable:      appleDef.startingVolume,
           priceHistory: [{ day: 0, price: appleDef.basePrice }],
         },
         wood: {
           resourceId: 'wood',
-          currentPrice:    woodDef.basePrice,
-          equilibriumPrice: woodDef.equilibriumPrice,
-          elasticityK:     woodDef.elasticityK,
-          volumeAvailable: woodDef.startingVolume,
+          currentPrice:         woodDef.basePrice,
+          equilibriumPrice:     woodDef.equilibriumPrice,
+          baseEquilibriumPrice: woodDef.equilibriumPrice,
+          volatility:           woodDef.volatility ?? 0.08,
+          elasticityK:          woodDef.elasticityK,
+          volumeAvailable:      woodDef.startingVolume,
           priceHistory: [{ day: 0, price: woodDef.basePrice }],
         },
       },
@@ -91,7 +106,7 @@ export function initGame(scenarioId?: string): GameState {
         name: towerDef.name,
         requiredResources: towerDef.requiredResources,
         playerContributed: {},
-        texContributed: {},
+        rivalContributed: { tex: {}, sam: {}, rita: {} },
         complete: false,
       },
       {
@@ -99,11 +114,15 @@ export function initGame(scenarioId?: string): GameState {
         name: cathedraleDef.name,
         requiredResources: cathedraleDef.requiredResources,
         playerContributed: {},
-        texContributed: {},
+        rivalContributed: { tex: {}, sam: {}, rita: {} },
         complete: false,
       },
     ],
-    texStrategy: { preferredResource: texResource },
+    rivalStrategies: {
+      tex:  { preferredResource: texResource },
+      sam:  { preferredResource: samResource },
+      rita: { preferredResource: ritaResource },
+    },
     shareRegistry: [],
   }
 }

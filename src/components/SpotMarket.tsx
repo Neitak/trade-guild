@@ -3,7 +3,7 @@ import {
   ComposedChart, Area, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import type { GameState, ResourceId, WonderId } from '../engine/types'
+import type { GameState, ResourceId, WonderId, ResourceMarket } from '../engine/types'
 import { previewSell, previewBuy } from '../engine/market'
 
 interface Props {
@@ -16,6 +16,38 @@ interface Props {
 const SELL_QTYS = [10, 25, 50, 100]
 const BUY_QTYS  = [10, 25, 50]
 
+const RESOURCE_META: Record<ResourceId, {
+  label: string
+  icon: string
+  chartHex: string
+  chartColor: string
+  gradientId: string
+  wonderId: WonderId
+  wonderName: string
+  dumpThreshold: number
+}> = {
+  apple: {
+    label: 'Pommes',
+    icon: '🍎',
+    chartHex: '#c9a84c',
+    chartColor: 'var(--accent)',
+    gradientId: 'priceGradientApple',
+    wonderId: 'tower_of_magic',
+    wonderName: 'Tour de Magie',
+    dumpThreshold: 20,
+  },
+  wood: {
+    label: 'Bois',
+    icon: '🪵',
+    chartHex: '#5a9e6a',
+    chartColor: '#5a9e6a',
+    gradientId: 'priceGradientWood',
+    wonderId: 'grande_cathedrale',
+    wonderName: 'Grande Cathédrale',
+    dumpThreshold: 10,
+  },
+}
+
 function calcMovingAverage(data: { day: number; price: number }[], window: number) {
   return data.map((point, i) => {
     if (i < window - 1) return { day: point.day, ma: null }
@@ -25,333 +57,249 @@ function calcMovingAverage(data: { day: number; price: number }[], window: numbe
   })
 }
 
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
-
-function CustomTooltip({ active, payload, label }: any) {
+function MiniTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
-  const price     = payload.find((p: any) => p.dataKey === 'price')?.value
-  const ma3v      = payload.find((p: any) => p.dataKey === 'ma3')?.value
-  const ma7v      = payload.find((p: any) => p.dataKey === 'ma7')?.value
-  const texMarker = payload.find((p: any) => p.dataKey === 'texMarker')?.value
+  const price = payload.find((p: any) => p.dataKey === 'price')?.value
   return (
     <div style={{
       background: 'rgba(8,8,20,0.96)',
-      border: '1px solid rgba(201,168,76,0.25)',
-      borderRadius: 6,
-      padding: '7px 12px',
+      border: '1px solid rgba(201,168,76,0.2)',
+      borderRadius: 4,
+      padding: '4px 8px',
       fontFamily: 'var(--font-mono)',
-      fontSize: 11,
-      lineHeight: 1.7,
-      minWidth: 110,
+      fontSize: 10,
     }}>
-      <div style={{ color: 'var(--text-muted)', marginBottom: 3, fontSize: 10, letterSpacing: '0.06em' }}>
-        JOUR {label}
-      </div>
-      {price != null && (
-        <div style={{ color: 'var(--accent)', fontSize: 13, fontWeight: 500 }}>
-          {price.toFixed(3)} or
-        </div>
-      )}
-      {ma3v != null && (
-        <div style={{ color: '#6a9fd8', fontSize: 10 }}>MM3 {ma3v.toFixed(3)}</div>
-      )}
-      {ma7v != null && (
-        <div style={{ color: '#9d6ac9', fontSize: 10 }}>MM7 {ma7v.toFixed(3)}</div>
-      )}
-      {texMarker != null && (
-        <div style={{ color: 'var(--tex-color)', fontSize: 10, marginTop: 2 }}>⚔ Tex</div>
-      )}
+      <span style={{ color: 'var(--text-muted)' }}>J{label} </span>
+      {price != null && <span style={{ color: 'var(--accent)' }}>{price.toFixed(2)}</span>}
     </div>
   )
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Per-resource card ────────────────────────────────────────────────────────
 
-export function SpotMarket({ state, onSell, onBuy, onContribute }: Props) {
-  const [activeResource, setActiveResource] = useState<ResourceId>('apple')
-  const [showMA3, setShowMA3] = useState(true)
-  const [showMA7, setShowMA7] = useState(true)
-  const [activeQtySell, setActiveQtySell] = useState(25)
-  const [activeQtyBuy, setActiveQtyBuy]   = useState(25)
+interface CardProps {
+  resourceId: ResourceId
+  resourceMarket: ResourceMarket
+  state: GameState
+  onSell: (qty: number) => void
+  onBuy: (qty: number) => void
+  onContribute: (qty: number) => void
+}
 
-  const { market, player, wonders } = state
-  const resourceMarket = market.resources[activeResource]
-  const priceHistory   = resourceMarket.priceHistory
-  const playerQty      = player.inventory[activeResource] ?? 0
+function ResourceCard({ resourceId, resourceMarket, state, onSell, onBuy, onContribute }: CardProps) {
+  const [qtySell, setQtySell] = useState(25)
+  const [qtyBuy, setQtyBuy]   = useState(25)
 
-  // Chart colors — gold for apples, forest green for wood
-  const isAppleTab   = activeResource === 'apple'
-  const chartHex     = isAppleTab ? '#c9a84c' : '#5a9e6a'
-  const chartColor   = isAppleTab ? 'var(--accent)' : '#5a9e6a'
-  const gradientId   = isAppleTab ? 'priceGradientApple' : 'priceGradientWood'
+  const meta = RESOURCE_META[resourceId]
+  const { player, wonders } = state
+  const priceHistory = resourceMarket.priceHistory
+  const playerQty    = player.inventory[resourceId] ?? 0
 
-  // Price delta vs previous day
   const prevPrice  = priceHistory.length > 1 ? priceHistory[priceHistory.length - 2].price : null
   const priceDelta = prevPrice != null ? resourceMarket.currentPrice - prevPrice : 0
   const deltaColor = priceDelta > 0.004 ? 'var(--success)' : priceDelta < -0.004 ? 'var(--danger)' : 'var(--text-muted)'
-  const deltaLabel = priceDelta > 0.004 ? `↑ +${priceDelta.toFixed(3)}` : priceDelta < -0.004 ? `↓ ${priceDelta.toFixed(3)}` : '— stable'
+  const deltaLabel = priceDelta > 0.004
+    ? `↑ +${priceDelta.toFixed(2)}`
+    : priceDelta < -0.004
+    ? `↓ ${priceDelta.toFixed(2)}`
+    : '—'
 
-  // Chart data
   const ma3 = useMemo(() => calcMovingAverage(priceHistory, 3), [priceHistory])
-  const ma7 = useMemo(() => calcMovingAverage(priceHistory, 7), [priceHistory])
-
   const chartData = priceHistory.map((p, i) => ({
     day: p.day,
     price: parseFloat(p.price.toFixed(3)),
     texMarker: p.texMarker ? p.price : undefined,
     ma3: ma3[i]?.ma,
-    ma7: ma7[i]?.ma,
   }))
 
-  // Action previews
-  const sellPreview = previewSell(state, activeResource, activeQtySell)
-  const buyPreview  = previewBuy(state, activeResource, activeQtyBuy)
-
-  const canSell = playerQty >= activeQtySell
+  const sellPreview = previewSell(state, resourceId, qtySell)
+  const buyPreview  = previewBuy(state, resourceId, qtyBuy)
+  const canSell = playerQty >= qtySell
   const canBuy  = player.gold >= buyPreview.cost && buyPreview.actualQty > 0
 
-  // Wonder contribution
-  const wonderId: WonderId = isAppleTab ? 'tower_of_magic' : 'grande_cathedrale'
-  const wonder = wonders.find(w => w.id === wonderId)!
-  const resourceKey    = isAppleTab ? 'apple' : 'wood'
-  const wonderRequired = wonder.requiredResources[resourceKey] ?? 0
-  const wonderContrib  = wonder.playerContributed[resourceKey] ?? 0
-  const wonderNeeded   = wonderRequired - wonderContrib
-  const maxContribute  = Math.min(playerQty, wonderNeeded)
+  const wonder = wonders.find(w => w.id === meta.wonderId)!
+  const wonderRequired = wonder.requiredResources[resourceId] ?? 0
+  const wonderContrib  = wonder.playerContributed[resourceId] ?? 0
+  const maxContribute  = Math.min(playerQty, wonderRequired - wonderContrib)
 
-  // Dump
-  const dumpThreshold = isAppleTab ? 20 : 10
-  const showDump      = playerQty >= dumpThreshold
-
-  const resourceLabel = isAppleTab ? 'pommes' : 'bois'
-  const resourceIcon  = isAppleTab ? '🍎' : '🪵'
-  const wonderName    = isAppleTab ? 'Tour de Magie' : 'Grande Cathédrale'
+  const showDump = playerQty >= meta.dumpThreshold
 
   return (
-    <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
-
-      {/* Resource tabs + MA toggles */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            className="btn-secondary"
-            style={{
-              padding: '4px 14px', fontSize: '0.75rem',
-              borderColor: !isAppleTab ? undefined : 'var(--accent)',
-              color:       !isAppleTab ? undefined : 'var(--accent)',
-            }}
-            onClick={() => setActiveResource('apple')}
-          >🍎 Pommes</button>
-          <button
-            className="btn-secondary"
-            style={{
-              padding: '4px 14px', fontSize: '0.75rem',
-              borderColor: isAppleTab ? undefined : '#5a9e6a',
-              color:       isAppleTab ? undefined : '#5a9e6a',
-            }}
-            onClick={() => setActiveResource('wood')}
-          >🪵 Bois</button>
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <button className="btn-secondary"
-            style={{ padding: '3px 10px', fontSize: '0.7rem', opacity: showMA3 ? 1 : 0.35 }}
-            onClick={() => setShowMA3(v => !v)}>MM 3j</button>
-          <button className="btn-secondary"
-            style={{ padding: '3px 10px', fontSize: '0.7rem', opacity: showMA7 ? 1 : 0.35 }}
-            onClick={() => setShowMA7(v => !v)}>MM 7j</button>
-        </div>
-      </div>
-
-      {/* Current price + delta */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ fontSize: '1.6rem', fontFamily: 'var(--font-mono)', fontWeight: 500, color: chartColor, lineHeight: 1 }}>
+    <div style={{
+      background: 'rgba(255,255,255,0.02)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius)',
+      padding: 14,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ fontSize: '1rem', fontFamily: 'var(--font-ui)', color: meta.chartColor }}>
+          {meta.icon} {meta.label}
+        </span>
+        <span style={{ fontSize: '1.25rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: meta.chartColor, marginLeft: 'auto' }}>
           {resourceMarket.currentPrice.toFixed(2)}
         </span>
-        <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>or / {resourceIcon}</span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: deltaColor }}>{deltaLabel}</span>
-        <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-          vol. {Math.round(resourceMarket.volumeAvailable)}
-        </span>
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>or</span>
+        <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: deltaColor }}>{deltaLabel}</span>
       </div>
 
-      {/* Price chart */}
-      <div style={{ flex: 1, minHeight: 140, minWidth: 0 }}>
+      {/* Mini chart */}
+      <div style={{ height: 100, minWidth: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
             <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor={chartHex} stopOpacity={0.28} />
-                <stop offset="90%" stopColor={chartHex} stopOpacity={0.02} />
+              <linearGradient id={meta.gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={meta.chartHex} stopOpacity={0.25} />
+                <stop offset="90%" stopColor={meta.chartHex} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-
-            <XAxis
-              dataKey="day"
-              tick={{ fill: 'var(--text-muted)', fontSize: 9, fontFamily: 'var(--font-mono)' }}
-              tickLine={false}
-              axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
-            />
+            <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 8, fontFamily: 'var(--font-mono)' }} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.05)' }} />
             <YAxis
               domain={[
-                (min: number) => Math.max(0.01, parseFloat((min - 0.08).toFixed(2))),
-                (max: number) => parseFloat((max + 0.08).toFixed(2)),
+                (min: number) => Math.max(0.01, parseFloat((min - 0.05).toFixed(2))),
+                (max: number) => parseFloat((max + 0.05).toFixed(2)),
               ]}
-              tick={{ fill: 'var(--text-muted)', fontSize: 9, fontFamily: 'var(--font-mono)' }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => v.toFixed(2)}
-              width={38}
+              tick={{ fill: 'var(--text-muted)', fontSize: 8, fontFamily: 'var(--font-mono)' }}
+              tickLine={false} axisLine={false}
+              tickFormatter={(v) => v.toFixed(1)}
+              width={34}
             />
-
-            {/* Equilibrium reference line */}
-            <ReferenceLine
-              y={resourceMarket.equilibriumPrice}
-              stroke={chartHex}
-              strokeDasharray="8 5"
-              strokeOpacity={0.3}
-              strokeWidth={1}
-            />
-
-            <Tooltip content={<CustomTooltip />} />
-
-            {/* Gradient area fill */}
-            <Area
-              type="monotone"
-              dataKey="price"
-              stroke="none"
-              fill={`url(#${gradientId})`}
-              fillOpacity={1}
-            />
-
-            {/* Price line */}
-            <Line
-              type="monotone"
-              dataKey="price"
-              stroke={chartColor}
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={{ r: 5, fill: chartHex, strokeWidth: 0 }}
-              name="Prix"
-            />
-
-            {/* Tex action markers */}
-            <Line
-              type="monotone"
-              dataKey="texMarker"
-              stroke="var(--tex-color)"
-              strokeWidth={0}
-              dot={{ r: 4, fill: 'var(--tex-color)', strokeWidth: 1.5, stroke: 'rgba(0,0,0,0.4)' }}
-              activeDot={false}
-              name="Tex"
-              connectNulls={false}
-            />
-
-            {/* Moving averages */}
-            {showMA3 && (
-              <Line type="monotone" dataKey="ma3" stroke="#6a9fd8" strokeWidth={1}
-                strokeDasharray="4 2" dot={false} activeDot={false} name="MM 3j" connectNulls={false} />
-            )}
-            {showMA7 && (
-              <Line type="monotone" dataKey="ma7" stroke="#9d6ac9" strokeWidth={1}
-                strokeDasharray="6 3" dot={false} activeDot={false} name="MM 7j" connectNulls={false} />
-            )}
+            <ReferenceLine y={resourceMarket.equilibriumPrice} stroke={meta.chartHex} strokeDasharray="6 4" strokeOpacity={0.25} strokeWidth={1} />
+            <Tooltip content={<MiniTooltip />} />
+            <Area type="monotone" dataKey="price" stroke="none" fill={`url(#${meta.gradientId})`} fillOpacity={1} />
+            <Line type="monotone" dataKey="price" stroke={meta.chartColor} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: meta.chartHex, strokeWidth: 0 }} />
+            <Line type="monotone" dataKey="ma3" stroke="#6a9fd8" strokeWidth={1} strokeDasharray="3 2" dot={false} activeDot={false} connectNulls={false} />
+            <Line type="monotone" dataKey="texMarker" stroke="var(--tex-color)" strokeWidth={0} dot={{ r: 3, fill: 'var(--tex-color)', strokeWidth: 0 }} activeDot={false} connectNulls={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
 
+      {/* Stock info */}
+      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', display: 'flex', gap: 12 }}>
+        <span>Stock <span style={{ color: 'var(--text-dim)' }}>{playerQty}</span> {meta.icon}</span>
+        <span>Vol. <span style={{ color: 'var(--text-dim)' }}>{Math.round(resourceMarket.volumeAvailable)}</span></span>
+      </div>
+
       {/* Trade actions */}
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
         {/* Sell */}
-        <div style={{ flex: 1, background: 'rgba(201,76,76,0.06)', border: '1px solid rgba(201,76,76,0.22)', borderRadius: 'var(--radius)', padding: 10 }}>
-          <div style={{ fontSize: '0.72rem', color: 'var(--danger)', marginBottom: 7, fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
-            Vendre
-          </div>
-          <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
+        <div style={{ flex: 1, background: 'rgba(201,76,76,0.06)', border: '1px solid rgba(201,76,76,0.2)', borderRadius: 'var(--radius)', padding: 8 }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--danger)', marginBottom: 6, letterSpacing: '0.04em', fontFamily: 'var(--font-ui)' }}>Vendre</div>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
             {SELL_QTYS.map(q => (
               <button key={q} className="btn-secondary"
-                style={{ flex: 1, padding: '3px 0', fontSize: '0.75rem', borderColor: q === activeQtySell ? 'var(--danger)' : undefined, color: q === activeQtySell ? 'var(--danger)' : undefined }}
-                onClick={() => setActiveQtySell(q)}>{q}</button>
+                style={{ flex: 1, padding: '2px 0', fontSize: '0.7rem', borderColor: q === qtySell ? 'var(--danger)' : undefined, color: q === qtySell ? 'var(--danger)' : undefined }}
+                onClick={() => setQtySell(q)}>{q}</button>
             ))}
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 7, minHeight: 28, fontFamily: 'var(--font-mono)' }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: 6, minHeight: 20, fontFamily: 'var(--font-mono)' }}>
             {canSell
-              ? <>→ <span style={{ color: 'var(--text-muted)' }}>{sellPreview.newPrice.toFixed(2)}</span> · <span className="gold-value">+{Math.floor(sellPreview.goldEarned)} or</span></>
-              : <span style={{ color: 'var(--text-muted)' }}>Stock insuffisant ({playerQty})</span>
+              ? <><span style={{ color: 'var(--text-muted)' }}>{sellPreview.newPrice.toFixed(2)}</span> · <span className="gold-value">+{Math.floor(sellPreview.goldEarned)} or</span></>
+              : <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>Stock insuffisant ({playerQty})</span>
             }
           </div>
           <button
             className="btn-primary"
-            style={{ width: '100%', background: 'linear-gradient(135deg, #c94c4c, #8f3030)', borderColor: '#c94c4c', color: '#fff' }}
+            style={{ width: '100%', background: 'linear-gradient(135deg,#c94c4c,#8f3030)', borderColor: '#c94c4c', color: '#fff', fontSize: '0.75rem', padding: '5px 0' }}
             disabled={!canSell}
-            onClick={() => onSell(activeResource, activeQtySell)}
+            onClick={() => onSell(qtySell)}
           >
-            Vendre {activeQtySell} {resourceIcon}
+            Vendre {qtySell}
           </button>
         </div>
 
         {/* Buy */}
-        <div style={{ flex: 1, background: 'rgba(76,175,106,0.06)', border: '1px solid rgba(76,175,106,0.22)', borderRadius: 'var(--radius)', padding: 10 }}>
-          <div style={{ fontSize: '0.72rem', color: 'var(--success)', marginBottom: 7, fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
-            Acheter
-          </div>
-          <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
+        <div style={{ flex: 1, background: 'rgba(76,175,106,0.06)', border: '1px solid rgba(76,175,106,0.2)', borderRadius: 'var(--radius)', padding: 8 }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--success)', marginBottom: 6, letterSpacing: '0.04em', fontFamily: 'var(--font-ui)' }}>Acheter</div>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
             {BUY_QTYS.map(q => (
               <button key={q} className="btn-secondary"
-                style={{ flex: 1, padding: '3px 0', fontSize: '0.75rem', borderColor: q === activeQtyBuy ? 'var(--success)' : undefined, color: q === activeQtyBuy ? 'var(--success)' : undefined }}
-                onClick={() => setActiveQtyBuy(q)}>{q}</button>
+                style={{ flex: 1, padding: '2px 0', fontSize: '0.7rem', borderColor: q === qtyBuy ? 'var(--success)' : undefined, color: q === qtyBuy ? 'var(--success)' : undefined }}
+                onClick={() => setQtyBuy(q)}>{q}</button>
             ))}
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 7, minHeight: 28, fontFamily: 'var(--font-mono)' }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: 6, minHeight: 20, fontFamily: 'var(--font-mono)' }}>
             {canBuy
-              ? <>→ <span style={{ color: 'var(--text-muted)' }}>{buyPreview.newPrice.toFixed(2)}</span> · <span className="gold-value">{Math.floor(buyPreview.cost)} or</span></>
-              : <span style={{ color: 'var(--text-muted)' }}>Or insuffisant ou marché vide</span>
+              ? <><span style={{ color: 'var(--text-muted)' }}>{buyPreview.newPrice.toFixed(2)}</span> · <span className="gold-value">{Math.floor(buyPreview.cost)} or</span></>
+              : <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>Or insuffisant</span>
             }
           </div>
           <button
             className="btn-primary"
-            style={{ width: '100%', background: 'linear-gradient(135deg, #4caf6a, #2e7a47)', borderColor: '#4caf6a', color: '#fff' }}
+            style={{ width: '100%', background: 'linear-gradient(135deg,#4caf6a,#2e7a47)', borderColor: '#4caf6a', color: '#fff', fontSize: '0.75rem', padding: '5px 0' }}
             disabled={!canBuy}
-            onClick={() => onBuy(activeResource, activeQtyBuy)}
+            onClick={() => onBuy(qtyBuy)}
           >
-            Acheter {activeQtyBuy} {resourceIcon}
+            Acheter {qtyBuy}
           </button>
         </div>
       </div>
 
       {/* Dump */}
       {showDump && (
-        <div style={{ background: 'rgba(180,60,60,0.08)', border: '1px solid rgba(180,60,60,0.4)', borderRadius: 'var(--radius)', padding: 10 }}>
-          <div style={{ fontSize: '0.72rem', color: '#c96060', marginBottom: 5, fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
+        <div style={{ background: 'rgba(180,60,60,0.07)', border: '1px solid rgba(180,60,60,0.35)', borderRadius: 'var(--radius)', padding: 8 }}>
+          <div style={{ fontSize: '0.68rem', color: '#c96060', marginBottom: 4, fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
             Dump — Inonder le marché
           </div>
           {(() => {
-            const r = resourceMarket
-            const impact   = r.elasticityK * (playerQty / Math.max(r.volumeAvailable, 1))
-            const newPrice = Math.max(0.05, r.currentPrice * (1 - impact))
-            const goldEarned = playerQty * r.currentPrice
+            const impact   = resourceMarket.elasticityK * (playerQty / Math.max(resourceMarket.volumeAvailable, 1))
+            const newPrice = Math.max(0.05, resourceMarket.currentPrice * (1 - impact))
             return (
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 7, fontFamily: 'var(--font-mono)' }}>
-                {playerQty} {resourceIcon} · prix {r.currentPrice.toFixed(2)} → <span style={{ color: '#c96060' }}>{newPrice.toFixed(2)}</span> · <span className="gold-value">+{Math.floor(goldEarned)} or</span>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: 6, fontFamily: 'var(--font-mono)' }}>
+                {playerQty} {meta.icon} · {resourceMarket.currentPrice.toFixed(2)} → <span style={{ color: '#c96060' }}>{newPrice.toFixed(2)}</span>
+                {' · '}<span className="gold-value">+{Math.floor(playerQty * resourceMarket.currentPrice)} or</span>
               </div>
             )
           })()}
-          <button className="btn-secondary" style={{ width: '100%', borderColor: 'rgba(180,60,60,0.5)', color: '#c96060' }} onClick={() => onSell(activeResource, playerQty)}>
-            Tout vendre — {playerQty} {resourceIcon}
+          <button className="btn-secondary" style={{ width: '100%', borderColor: 'rgba(180,60,60,0.5)', color: '#c96060', fontSize: '0.72rem', padding: '4px 0' }}
+            onClick={() => onSell(playerQty)}>
+            Tout vendre — {playerQty} {meta.icon}
           </button>
         </div>
       )}
 
       {/* Wonder contribution */}
       {maxContribute > 0 && !wonder.complete && (
-        <div style={{ background: 'var(--accent-glow)', border: '1px solid var(--accent)', borderRadius: 'var(--radius)', padding: 10 }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--accent)', marginBottom: 5, fontFamily: 'var(--font-ui)' }}>
-            ✦ {wonderName} — {wonderContrib}/{wonderRequired} {resourceIcon}
+        <div style={{ background: 'var(--accent-glow)', border: '1px solid var(--accent)', borderRadius: 'var(--radius)', padding: 8 }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--accent)', marginBottom: 5, fontFamily: 'var(--font-ui)' }}>
+            ✦ {meta.wonderName} — {wonderContrib}/{wonderRequired} {meta.icon}
           </div>
-          <button className="btn-primary" onClick={() => onContribute(maxContribute, wonderId)}>
-            Apporter {maxContribute} {resourceIcon} à la {wonderName}
+          <button className="btn-primary" style={{ fontSize: '0.72rem', padding: '5px 0', width: '100%' }}
+            onClick={() => onContribute(maxContribute)}>
+            Apporter {maxContribute} {meta.icon}
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function SpotMarket({ state, onSell, onBuy, onContribute }: Props) {
+  const resources: ResourceId[] = ['apple', 'wood']
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', letterSpacing: '0.08em', paddingBottom: 4, borderBottom: '1px solid var(--border)' }}>
+        ⚖ SPOT MARKET — Jour {state.day}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
+        {resources.map(rid => (
+          <ResourceCard
+            key={rid}
+            resourceId={rid}
+            resourceMarket={state.market.resources[rid]}
+            state={state}
+            onSell={qty => onSell(rid, qty)}
+            onBuy={qty => onBuy(rid, qty)}
+            onContribute={qty => onContribute(qty, RESOURCE_META[rid].wonderId)}
+          />
+        ))}
+      </div>
     </div>
   )
 }

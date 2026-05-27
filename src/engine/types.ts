@@ -19,11 +19,22 @@ export interface BuildingDef {
   revenuePerDay?: number // Tier 2 only — gold per day based on stock
 }
 
+// ─── Guild IDs ────────────────────────────────────────────────────────────────
+
+export type GuildId = 'player' | 'tex' | 'sam' | 'rita'
+
+export const GUILD_COLORS: Record<GuildId, string> = {
+  player: 'var(--player-color)',
+  tex:    '#c94c4c',
+  sam:    '#9b59b6',
+  rita:   '#e67e22',
+}
+
 // ─── Shares (rachat hostile) ──────────────────────────────────────────────────
 
 export interface ShareOwnership {
   buildingId: BuildingId
-  ownerGuildId: 'player' | 'tex'
+  ownerGuildId: GuildId
   shares: number // 0–100 (percentage)
 }
 
@@ -47,7 +58,7 @@ export type GameEventType =
 
 export interface GameEvent {
   day: number
-  actor: 'player' | 'tex' | 'system'
+  actor: GuildId | 'system'
   type: GameEventType
   payload: Record<string, unknown>
 }
@@ -72,6 +83,8 @@ export interface ResourceMarket {
   resourceId: ResourceId
   currentPrice: number
   equilibriumPrice: number
+  baseEquilibriumPrice: number  // immuable — référence avant dégradation
+  volatility: number            // 0.08 calme → 0.15 volatile
   elasticityK: number
   volumeAvailable: number
   priceHistory: Array<{ day: number; price: number; texMarker?: boolean }>
@@ -91,7 +104,9 @@ export interface OwnedBuilding {
 }
 
 export interface GuildState {
-  id: 'player' | 'tex'
+  id: GuildId
+  name: string   // display name
+  color: string  // CSS color
   gold: number
   inventory: Partial<Record<ResourceId, number>>
   buildings: OwnedBuilding[]
@@ -104,11 +119,10 @@ export interface WonderProgress {
   id: WonderId
   name: string
   requiredResources: Partial<Record<ResourceId, number>>
-  // Each guild builds independently — first to reach required (on any wonder) wins
   playerContributed: Partial<Record<ResourceId, number>>
-  texContributed: Partial<Record<ResourceId, number>>
+  rivalContributed: Partial<Record<GuildId, Partial<Record<ResourceId, number>>>>
   complete: boolean
-  completedBy?: 'player' | 'tex'
+  completedBy?: GuildId
   completedOnDay?: number
 }
 
@@ -122,7 +136,7 @@ export interface MapNode {
   type: 'resource' | 'commercial' | 'wonder'
   resourceId?: ResourceId
   buildingDefId?: BuildingId
-  ownedBy?: 'player' | 'tex'
+  ownedBy?: GuildId
   buildingInstanceId?: string
   locked?: boolean // true = not yet available, unlocks via narrative condition
 }
@@ -142,16 +156,29 @@ export interface GameState {
   phase: GamePhase
   scenario: string // opening sentence
   player: GuildState
-  tex: GuildState
+  rivals: GuildState[]  // [tex, sam, rita]
   market: MarketState
   map: MapState
   log: GameEvent[]
   pendingRumors: PendingRumor[]
   activeRumors: ActiveRumor[]
-  wonders: WonderProgress[] // [tower_of_magic, grande_cathedrale] — first completed wins
-  texStrategy: { preferredResource: ResourceId } // picked randomly at game start
-  // Share registry: who owns what % of which building
+  wonders: WonderProgress[]
+  rivalStrategies: Partial<Record<GuildId, { preferredResource: ResourceId }>>
   shareRegistry: ShareOwnership[]
+}
+
+// ─── Guild helpers ────────────────────────────────────────────────────────────
+
+export function getTex(state: GameState): GuildState {
+  return state.rivals.find(r => r.id === 'tex')!
+}
+
+export function getRival(state: GameState, id: GuildId): GuildState {
+  return state.rivals.find(r => r.id === id)!
+}
+
+export function updateRival(state: GameState, updated: GuildState): GameState {
+  return { ...state, rivals: state.rivals.map(r => r.id === updated.id ? updated : r) }
 }
 
 // ─── Sim types ────────────────────────────────────────────────────────────────

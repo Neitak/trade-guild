@@ -1,4 +1,6 @@
-import type { GameState, BuildingId } from '../engine/types'
+import { useState, useEffect, useRef } from 'react'
+import type { GameState, BuildingId, GuildId } from '../engine/types'
+import { GUILD_COLORS } from '../engine/types'
 import { previewBuyShare } from '../engine/shares'
 import buildingDefs from '../data/buildings.json'
 import bgMap from '../../images/bg01.png'
@@ -62,7 +64,24 @@ const EDGES = [
 ]
 
 export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
-  const { map, player, tex, wonders } = state
+  const { map, player, rivals, wonders, rivalStrategies } = state
+
+  // 2b — Pulse animation on newly acquired nodes
+  const [pulsingNodes, setPulsingNodes] = useState<Set<string>>(new Set())
+  const prevNodesRef = useRef(map.nodes)
+  useEffect(() => {
+    const prev = prevNodesRef.current
+    const newlyOwned = map.nodes
+      .filter(n => n.ownedBy === 'player' && prev.find(p => p.id === n.id)?.ownedBy !== 'player')
+      .map(n => n.id)
+    if (newlyOwned.length > 0) {
+      setPulsingNodes(s => new Set([...s, ...newlyOwned]))
+      setTimeout(() => {
+        setPulsingNodes(s => { const next = new Set(s); newlyOwned.forEach(id => next.delete(id)); return next })
+      }, 1400)
+    }
+    prevNodesRef.current = map.nodes
+  }, [map.nodes])
 
   function getNodeOwner(nodeId: string) {
     return map.nodes.find(n => n.id === nodeId)?.ownedBy
@@ -73,32 +92,36 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
   function getNodeDef(nodeId: string) {
     return map.nodes.find(n => n.id === nodeId)?.buildingDefId
   }
-  function getOwnerColor(owner?: string) {
-    if (owner === 'player') return 'var(--player-color)'
-    if (owner === 'tex')    return 'var(--tex-color)'
-    return 'var(--text-muted)'
+  function getOwnerColor(owner?: GuildId | string) {
+    if (!owner) return 'var(--text-muted)'
+    return GUILD_COLORS[owner as GuildId] ?? 'var(--text-muted)'
   }
-  function getOwnerFill(owner?: string) {
-    if (owner === 'player') return 'rgba(76,138,201,0.22)'
-    if (owner === 'tex')    return 'rgba(201,76,76,0.22)'
+  function getOwnerFill(owner?: GuildId | string) {
+    if (owner === 'player') return 'rgba(76,138,201,0.45)'
+    if (owner === 'tex')    return 'rgba(201,76,76,0.3)'
+    if (owner === 'sam')    return 'rgba(155,89,182,0.3)'
+    if (owner === 'rita')   return 'rgba(230,126,34,0.3)'
     return 'rgba(18,18,36,0.88)'
   }
   function renderShareInfo(instanceId: string) {
     const playerShares = player.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
-    const texShares    = tex.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
-    return `Toi: ${playerShares}% — Tex: ${texShares}%`
+    const ownerRival   = rivals.find(r => r.buildings.some(b => b.instanceId === instanceId))
+    const rivalShares  = ownerRival?.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
+    const rivalName    = ownerRival?.name ?? 'Rival'
+    return `Toi: ${playerShares}% — ${rivalName}: ${rivalShares}%`
   }
 
-  // Wonder progress per wonder node
+  // Wonder progress per wonder node — player vs best rival
   const tower     = wonders.find(w => w.id === 'tower_of_magic')!
   const cathedrale = wonders.find(w => w.id === 'grande_cathedrale')!
 
   const towerReq    = tower.requiredResources.apple ?? 800
   const cathedReq   = cathedrale.requiredResources.wood ?? 400
-  const towerPlayerPct  = Math.round(((tower.playerContributed.apple      ?? 0) / towerReq)  * 100)
-  const towerTexPct     = Math.round(((tower.texContributed.apple         ?? 0) / towerReq)  * 100)
-  const cathedPlayerPct = Math.round(((cathedrale.playerContributed.wood  ?? 0) / cathedReq) * 100)
-  const cathedTexPct    = Math.round(((cathedrale.texContributed.wood     ?? 0) / cathedReq) * 100)
+  const towerPlayerPct  = Math.round(((tower.playerContributed.apple ?? 0) / towerReq) * 100)
+  const towerTexPct     = Math.round((Math.max(...rivals.map(r => tower.rivalContributed[r.id]?.apple ?? 0)) / towerReq) * 100)
+  const cathedPlayerPct = Math.round(((cathedrale.playerContributed.wood ?? 0) / cathedReq) * 100)
+  const cathedTexPct    = Math.round((Math.max(...rivals.map(r => cathedrale.rivalContributed[r.id]?.wood ?? 0)) / cathedReq) * 100)
+  const leadingRival    = rivals.reduce((best, r) => (r.netWorthHistory.at(-1)?.value ?? 0) > (best.netWorthHistory.at(-1)?.value ?? 0) ? r : best, rivals[0])
 
   const svgW = 720
   const svgH = 380
@@ -164,15 +187,26 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
           const isCathed = nodeId === 'cathedrale_slot'
 
           const canBuy   = !isLocked && !owner && !!defId
-          const canShare = !isLocked && owner === 'tex' && !!instanceId
+          const canShare = !isLocked && !!owner && owner !== 'player' && !!instanceId
           const sharePreview = canShare ? previewBuyShare(state, instanceId!) : null
 
           // Degradation of owned Tier 1 building
           const ownedBuilding = instanceId
-            ? (player.buildings.find(b => b.instanceId === instanceId) ?? tex.buildings.find(b => b.instanceId === instanceId))
+            ? (player.buildings.find(b => b.instanceId === instanceId) ?? rivals.flatMap(r => r.buildings).find(b => b.instanceId === instanceId))
             : undefined
           const degradation = ownedBuilding?.degradation ?? 0
           const degradPct = Math.round(degradation * 100)
+
+          // 2a — Production label for owned non-wonder nodes
+          const buildingDef = defId ? (buildingDefs as any[]).find(d => d.id === defId) : null
+          const effectiveProd = buildingDef?.productionPerDay
+            ? Math.round(buildingDef.productionPerDay * (1 - degradation))
+            : 0
+          const dailyRevenue = buildingDef?.revenuePerDay ?? 0
+          const prodIcon = buildingDef?.produces === 'apple' ? '🍎' : buildingDef?.produces === 'wood' ? '🪵' : null
+          const prodLabel = owner && !isWonder
+            ? (effectiveProd > 0 && prodIcon ? `+${effectiveProd} ${prodIcon}/j` : dailyRevenue > 0 ? `+${dailyRevenue} or/j` : null)
+            : null
 
           // Wonder-specific progress
           let pPct = 0, tPct = 0
@@ -183,6 +217,17 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
 
           return (
             <g key={nodeId}>
+              {/* 2b — Pulse ring: expands & fades on acquisition */}
+              {pulsingNodes.has(nodeId) && (
+                <circle
+                  cx={pos.x} cy={pos.y} r={R + 8}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={2.5}
+                  style={{ animation: 'nodeAcquired 1.4s ease-out forwards' }}
+                />
+              )}
+
               {/* Outer glow ring — owned nodes only */}
               {owner && (
                 <circle
@@ -205,11 +250,23 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
 
               {/* Icon — locked nodes show 🔒 */}
               <text
-                x={pos.x} y={pos.y + 7}
+                x={pos.x} y={prodLabel ? pos.y + 2 : pos.y + 7}
                 textAnchor="middle"
                 fontSize={isWonder ? 22 : 16}
                 opacity={isLocked ? 0.3 : 1}
               >{isLocked ? '🔒' : pos.icon}</text>
+
+              {/* 2a — Production label inside owned node */}
+              {prodLabel && (
+                <text
+                  x={pos.x} y={pos.y + 16}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fill={color}
+                  fontFamily="var(--font-mono)"
+                  opacity={0.9}
+                >{prodLabel}</text>
+              )}
 
               {/* Label */}
               <text
@@ -269,8 +326,8 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
                 <foreignObject x={pos.x - 65} y={pos.y + R + 36} width={130} height={22}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', padding: '2px 0', fontSize: '0.65rem', borderColor: 'var(--tex-color)' }}
-                    title={`Acheter 10% pour ${sharePreview.cost} or → +${sharePreview.playerCutPerDay}/j`}
+                    style={{ width: '100%', padding: '2px 0', fontSize: '0.65rem', borderColor: sharePreview.ownerColor }}
+                    title={`Acheter 10% de ${sharePreview.ownerName} pour ${sharePreview.cost} or → +${sharePreview.playerCutPerDay}/j`}
                     onClick={() => onBuyShare(instanceId!)}
                     disabled={!sharePreview.canAfford}
                   >
@@ -284,12 +341,14 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
       </svg>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: 16, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', gap: 12, fontSize: '0.7rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
         <span style={{ color: 'var(--player-color)' }}>■ Toi</span>
-        <span style={{ color: 'var(--tex-color)' }}>■ Tex</span>
+        {rivals.map(r => (
+          <span key={r.id} style={{ color: r.color }}>■ {r.name}</span>
+        ))}
         <span>□ Disponible</span>
-        <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>
-          {state.texStrategy.preferredResource === 'wood' ? '⚔ Tex → Bois' : '⚔ Tex → Pommes'}
+        <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.65rem' }}>
+          ⚔ {leadingRival.name} → {rivalStrategies[leadingRival.id]?.preferredResource === 'wood' ? 'Bois' : 'Pommes'}
         </span>
       </div>
     </div>

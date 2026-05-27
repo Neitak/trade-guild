@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(src/**/*.ts)",
+      "Read(src/**/*.tsx)",
+      "Read(src/**/*.json)",
+      "Read(*.md)",
+      "Read(.gitignore)",
+      "Write(CONTEXT.md)",
+      "Write(CLAUDE.md)",
+      "Bash(npm run dev)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(git status)",
+      "Bash(git diff)",
+      "Bash(git log)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}

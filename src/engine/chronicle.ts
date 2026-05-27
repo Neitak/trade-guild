@@ -1,4 +1,5 @@
 import type { GameState, GameEvent } from './types'
+import { getTex } from './types'
 
 export interface ChronicleResult {
   title: string
@@ -162,8 +163,9 @@ export function generateChronicle(state: GameState): ChronicleResult {
   const moments = findKeyMoments(state)
   const advice = getAdvice(archetype, won)
 
+  const tex = getTex(state)
   const finalPlayerWorth = state.player.netWorthHistory.at(-1)?.value ?? Math.floor(state.player.gold)
-  const finalTexWorth    = state.tex.netWorthHistory.at(-1)?.value ?? Math.floor(state.tex.gold)
+  const finalTexWorth    = tex.netWorthHistory.at(-1)?.value ?? Math.floor(tex.gold)
 
   return {
     title,

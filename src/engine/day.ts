@@ -1,7 +1,7 @@
 import type { GameState, GameEvent, ResourceId, WonderId, OwnedBuilding, ActiveRumor } from './types'
 import { produceResources } from './buildings'
 import { recoverPrices } from './market'
-import { runTexAI } from './ai'
+import { runRivalAI } from './ai'
 import { generateRumors, revealDueRumors } from './rumors'
 import buildingDefs from '../data/buildings.json'
 
@@ -21,17 +21,19 @@ export function resolveEndOfDay(state: GameState): GameState {
   // 2b. Degrade Tier 1 extractors (progressive slowdown)
   s = degradeBuildings(s)
 
-  // 3. Run Tex AI (buys, sells, builds, contributes to wonder)
-  s = runTexAI(s)
+  // 3. Run all rivals AI
+  for (const rival of s.rivals) {
+    s = runRivalAI(s, rival.id)
+  }
 
-  // 4. Queue new rumors based on what Tex did today
+  // 4. Queue new rumors based on what rivals did today (only tex for flavor text)
   s = generateRumors(s)
 
   // 5. Unlock nodes narratively (new slots when economy develops)
   s = unlockNodes(s)
 
   // 6. Price recovery + daily snapshot for all resource charts
-  s = { ...s, market: recoverPrices(s.market, s.day) }
+  s = { ...s, market: recoverPrices(s) }
   s = recordDailyPriceSnapshot(s)
 
   // 7. Update net worth histories
@@ -47,7 +49,7 @@ export function resolveEndOfDay(state: GameState): GameState {
     type: 'END_DAY',
     payload: {
       playerGold: s.player.gold,
-      texGold: s.tex.gold,
+      texGold: s.rivals.find(r => r.id === 'tex')?.gold ?? 0,
       applePrice: s.market.resources['apple'].currentPrice,
       woodPrice: s.market.resources['wood'].currentPrice,
     },
@@ -123,33 +125,30 @@ function updateNetWorth(state: GameState): GameState {
   const applePrice = state.market.resources['apple'].currentPrice
   const woodPrice  = state.market.resources['wood'].currentPrice
 
-  const playerWorth = state.player.gold
-    + (state.player.inventory['apple'] ?? 0) * applePrice
-    + (state.player.inventory['wood']  ?? 0) * woodPrice
+  function worth(g: { gold: number; inventory: Partial<Record<ResourceId, number>> }): number {
+    return g.gold + (g.inventory['apple'] ?? 0) * applePrice + (g.inventory['wood'] ?? 0) * woodPrice
+  }
 
-  const texWorth = state.tex.gold
-    + (state.tex.inventory['apple'] ?? 0) * applePrice
-    + (state.tex.inventory['wood']  ?? 0) * woodPrice
+  const updatedRivals = state.rivals.map(r => ({
+    ...r,
+    netWorthHistory: [...r.netWorthHistory, { day: state.day, value: Math.round(worth(r)) }],
+  }))
 
   return {
     ...state,
     player: {
       ...state.player,
-      netWorthHistory: [...state.player.netWorthHistory, { day: state.day, value: Math.round(playerWorth) }],
+      netWorthHistory: [...state.player.netWorthHistory, { day: state.day, value: Math.round(worth(state.player)) }],
     },
-    tex: {
-      ...state.tex,
-      netWorthHistory: [...state.tex.netWorthHistory, { day: state.day, value: Math.round(texWorth) }],
-    },
+    rivals: updatedRivals,
   }
 }
 
 function checkGameOver(state: GameState): GameState {
   for (const wonder of state.wonders) {
     const resourceId = Object.keys(wonder.requiredResources)[0] as ResourceId
-    const required = wonder.requiredResources[resourceId] ?? 0
+    const required   = wonder.requiredResources[resourceId] ?? 0
     const playerDone = (wonder.playerContributed[resourceId] ?? 0) >= required
-    const texDone    = (wonder.texContributed[resourceId]    ?? 0) >= required
 
     if (playerDone && !wonder.complete) {
       const updated = state.wonders.map(w =>
@@ -157,23 +156,28 @@ function checkGameOver(state: GameState): GameState {
       )
       return { ...state, phase: 'won', wonders: updated }
     }
-    if (texDone && !wonder.complete) {
-      const updated = state.wonders.map(w =>
-        w.id === wonder.id ? { ...w, complete: true, completedBy: 'tex' as const, completedOnDay: state.day } : w
-      )
-      return { ...state, phase: 'lost', wonders: updated }
+
+    // Check each rival
+    for (const rival of state.rivals) {
+      const rivalDone = (wonder.rivalContributed[rival.id]?.[resourceId] ?? 0) >= required
+      if (rivalDone && !wonder.complete) {
+        const updated = state.wonders.map(w =>
+          w.id === wonder.id ? { ...w, complete: true, completedBy: rival.id, completedOnDay: state.day } : w
+        )
+        return { ...state, phase: 'lost', wonders: updated }
+      }
     }
-    // Wonder was already marked complete (e.g. set by contributeToWonder during player action)
+
     if (wonder.complete) {
       return { ...state, phase: wonder.completedBy === 'player' ? 'won' : 'lost' }
     }
   }
 
-  // Day limit fallback
+  // Day limit fallback — player wins if worth ≥ best rival
   if (state.day >= 60) {
     const playerWorth = state.player.netWorthHistory.at(-1)?.value ?? 0
-    const texWorth    = state.tex.netWorthHistory.at(-1)?.value ?? 0
-    return { ...state, phase: playerWorth >= texWorth ? 'won' : 'lost' }
+    const bestRival   = Math.max(...state.rivals.map(r => r.netWorthHistory.at(-1)?.value ?? 0))
+    return { ...state, phase: playerWorth >= bestRival ? 'won' : 'lost' }
   }
 
   return state
@@ -192,7 +196,7 @@ function degradeBuildings(state: GameState): GameState {
   function applyDegradation(buildings: OwnedBuilding[]): OwnedBuilding[] {
     return buildings.map(b => {
       const def = defsMap[b.defId]
-      if (!def?.productionPerDay) return b  // skip Tier 2 (no resource production)
+      if (!def?.productionPerDay) return b
       const current = b.degradation ?? 0
       if (current >= MAX_DEGRADATION) return b
       return { ...b, degradation: parseFloat(Math.min(MAX_DEGRADATION, current + DEGRADE_PER_DAY).toFixed(4)) }
@@ -201,8 +205,8 @@ function degradeBuildings(state: GameState): GameState {
 
   return {
     ...state,
-    player: { ...state.player, buildings: applyDegradation(state.player.buildings) },
-    tex:    { ...state.tex,    buildings: applyDegradation(state.tex.buildings) },
+    player:  { ...state.player, buildings: applyDegradation(state.player.buildings) },
+    rivals:  state.rivals.map(r => ({ ...r, buildings: applyDegradation(r.buildings) })),
   }
 }
 
@@ -210,7 +214,7 @@ function degradeBuildings(state: GameState): GameState {
 // Les slot_2 se débloquent quand l'économie le justifie.
 
 function unlockNodes(state: GameState): GameState {
-  const allBuildings = [...state.player.buildings, ...state.tex.buildings]
+  const allBuildings = [...state.player.buildings, ...state.rivals.flatMap(r => r.buildings)]
 
   const UNLOCK_CONDITIONS: Record<string, { condition: () => boolean; message: string }> = {
     orchard_slot_2: {

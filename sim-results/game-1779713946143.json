@@ -1,0 +1,2087 @@
+{
+  "winner": "tex",
+  "days": 42,
+  "playerFinalGold": 1,
+  "texFinalGold": 1412.5657504403919,
+  "priceMin": 0.9975,
+  "priceMax": 1.0161749613654403,
+  "priceAvg": 1.0130997497017051,
+  "archetype": "mixed",
+  "log": [
+    {
+      "day": 0,
+      "actor": "player",
+      "type": "SELL",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 1,
+        "price": 1,
+        "gold": 1
+      }
+    },
+    {
+      "day": 0,
+      "actor": "player",
+      "type": "BUY_BUILDING",
+      "payload": {
+        "defId": "orchard",
+        "instanceId": "player_orchard_1779713946142_mdgm",
+        "costGold": 10
+      }
+    },
+    {
+      "day": 1,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 1,
+      "actor": "tex",
+      "type": "BUY_BUILDING",
+      "payload": {
+        "defId": "orchard",
+        "instanceId": "tex_orchard_1779713946142_gt7q",
+        "costGold": 10
+      }
+    },
+    {
+      "day": 1,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 0.9975,
+        "cost": 2.9925
+      }
+    },
+    {
+      "day": 1,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 487.0075,
+        "applePrice": 1.0041555555555557
+      }
+    },
+    {
+      "day": 2,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 2,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0041555555555557,
+        "cost": 3.012466666666667
+      }
+    },
+    {
+      "day": 2,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 483.9950333333333,
+        "applePrice": 1.0082740679012345
+      }
+    },
+    {
+      "day": 2,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 20,
+        "required": 800
+      }
+    },
+    {
+      "day": 3,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 3,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0082740679012345,
+        "cost": 3.0248222037037036
+      }
+    },
+    {
+      "day": 3,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 480.9702111296296,
+        "applePrice": 1.0108419930836763
+      }
+    },
+    {
+      "day": 3,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 40,
+        "required": 800
+      }
+    },
+    {
+      "day": 4,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 4,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0108419930836763,
+        "cost": 3.032525979251029
+      }
+    },
+    {
+      "day": 4,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 477.93768515037857,
+        "applePrice": 1.0123979744697218
+      }
+    },
+    {
+      "day": 4,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 60,
+        "required": 800
+      }
+    },
+    {
+      "day": 5,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 5,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0123979744697218,
+        "cost": 3.0371939234091654
+      }
+    },
+    {
+      "day": 5,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 474.9004912269694,
+        "applePrice": 1.01327014584942
+      }
+    },
+    {
+      "day": 5,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 80,
+        "required": 800
+      }
+    },
+    {
+      "day": 6,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 6,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.01327014584942,
+        "cost": 3.03981043754826
+      }
+    },
+    {
+      "day": 6,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 471.8606807894211,
+        "applePrice": 1.0136720673719293
+      }
+    },
+    {
+      "day": 6,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 100,
+        "required": 800
+      }
+    },
+    {
+      "day": 7,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 7,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0136720673719293,
+        "cost": 3.041016202115788
+      }
+    },
+    {
+      "day": 7,
+      "actor": "tex",
+      "type": "BUY_BUILDING",
+      "payload": {
+        "defId": "fruit_market",
+        "instanceId": "tex_fruit_market_1779713946142_h1b0",
+        "costResources": {
+          "apple": 120
+        }
+      }
+    },
+    {
+      "day": 7,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 468.81966458730534,
+        "applePrice": 1.0137487171606243
+      }
+    },
+    {
+      "day": 7,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 120,
+        "required": 800
+      }
+    },
+    {
+      "day": 8,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 8,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0137487171606243,
+        "cost": 3.041246151481873
+      }
+    },
+    {
+      "day": 8,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 495.7784184358235,
+        "applePrice": 1.0136012682745008
+      }
+    },
+    {
+      "day": 8,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 140,
+        "required": 800
+      }
+    },
+    {
+      "day": 9,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 9,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0136012682745008,
+        "cost": 3.0408038048235024
+      }
+    },
+    {
+      "day": 9,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 522.7376146309999,
+        "applePrice": 1.013301605463696
+      }
+    },
+    {
+      "day": 9,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 160,
+        "required": 800
+      }
+    },
+    {
+      "day": 10,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 10,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.013301605463696,
+        "cost": 3.039904816391088
+      }
+    },
+    {
+      "day": 10,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 70,
+        "total": 70,
+        "required": 800
+      }
+    },
+    {
+      "day": 10,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 549.6977098146089,
+        "applePrice": 1.0130289773734298
+      }
+    },
+    {
+      "day": 10,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 180,
+        "required": 800
+      }
+    },
+    {
+      "day": 11,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 11,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0130289773734298,
+        "cost": 3.0390869321202896
+      }
+    },
+    {
+      "day": 11,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 93,
+        "required": 800
+      }
+    },
+    {
+      "day": 11,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 576.6586228824885,
+        "applePrice": 1.0127967800289501
+      }
+    },
+    {
+      "day": 11,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 200,
+        "required": 800
+      }
+    },
+    {
+      "day": 12,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 12,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0127967800289501,
+        "cost": 3.0383903400868504
+      }
+    },
+    {
+      "day": 12,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 116,
+        "required": 800
+      }
+    },
+    {
+      "day": 12,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 603.6202325424017,
+        "applePrice": 1.012599017550657
+      }
+    },
+    {
+      "day": 12,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 220,
+        "required": 800
+      }
+    },
+    {
+      "day": 13,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 13,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.012599017550657,
+        "cost": 3.037797052651971
+      }
+    },
+    {
+      "day": 13,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 139,
+        "required": 800
+      }
+    },
+    {
+      "day": 13,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 630.5824354897497,
+        "applePrice": 1.0124305832478946
+      }
+    },
+    {
+      "day": 13,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 240,
+        "required": 800
+      }
+    },
+    {
+      "day": 14,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 14,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0124305832478946,
+        "cost": 3.0372917497436838
+      }
+    },
+    {
+      "day": 14,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 162,
+        "required": 800
+      }
+    },
+    {
+      "day": 14,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 657.5451437400061,
+        "applePrice": 1.0122871277522318
+      }
+    },
+    {
+      "day": 14,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 260,
+        "required": 800
+      }
+    },
+    {
+      "day": 15,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 15,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0122871277522318,
+        "cost": 3.0368613832566957
+      }
+    },
+    {
+      "day": 15,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 185,
+        "required": 800
+      }
+    },
+    {
+      "day": 15,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 684.5082823567494,
+        "applePrice": 1.0121649467065759
+      }
+    },
+    {
+      "day": 15,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 280,
+        "required": 800
+      }
+    },
+    {
+      "day": 16,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 16,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0121649467065759,
+        "cost": 3.036494840119728
+      }
+    },
+    {
+      "day": 16,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 208,
+        "required": 800
+      }
+    },
+    {
+      "day": 16,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 711.4717875166297,
+        "applePrice": 1.0120608851099906
+      }
+    },
+    {
+      "day": 16,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 300,
+        "required": 800
+      }
+    },
+    {
+      "day": 17,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 17,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0120608851099906,
+        "cost": 3.036182655329972
+      }
+    },
+    {
+      "day": 17,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 231,
+        "required": 800
+      }
+    },
+    {
+      "day": 17,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 738.4356048612997,
+        "applePrice": 1.011972255848179
+      }
+    },
+    {
+      "day": 17,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 320,
+        "required": 800
+      }
+    },
+    {
+      "day": 18,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 18,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.011972255848179,
+        "cost": 3.0359167675445367
+      }
+    },
+    {
+      "day": 18,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 254,
+        "required": 800
+      }
+    },
+    {
+      "day": 18,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 765.3996880937551,
+        "applePrice": 1.0118967703058939
+      }
+    },
+    {
+      "day": 18,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 340,
+        "required": 800
+      }
+    },
+    {
+      "day": 19,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 19,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0118967703058939,
+        "cost": 3.0356903109176816
+      }
+    },
+    {
+      "day": 19,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 277,
+        "required": 800
+      }
+    },
+    {
+      "day": 19,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 792.3639977828375,
+        "applePrice": 1.01183247926953
+      }
+    },
+    {
+      "day": 19,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 360,
+        "required": 800
+      }
+    },
+    {
+      "day": 20,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 20,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.01183247926953,
+        "cost": 3.0354974378085897
+      }
+    },
+    {
+      "day": 20,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 300,
+        "required": 800
+      }
+    },
+    {
+      "day": 20,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 819.3285003450289,
+        "applePrice": 1.0117777225938587
+      }
+    },
+    {
+      "day": 20,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 380,
+        "required": 800
+      }
+    },
+    {
+      "day": 21,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 21,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0117777225938587,
+        "cost": 3.035333167781576
+      }
+    },
+    {
+      "day": 21,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 323,
+        "required": 800
+      }
+    },
+    {
+      "day": 21,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 846.2931671772474,
+        "applePrice": 1.0117310863331894
+      }
+    },
+    {
+      "day": 21,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 400,
+        "required": 800
+      }
+    },
+    {
+      "day": 22,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 22,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0117310863331894,
+        "cost": 3.035193258999568
+      }
+    },
+    {
+      "day": 22,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 346,
+        "required": 800
+      }
+    },
+    {
+      "day": 22,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 873.2579739182478,
+        "applePrice": 1.0116913662299776
+      }
+    },
+    {
+      "day": 22,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 420,
+        "required": 800
+      }
+    },
+    {
+      "day": 23,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 23,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0116913662299776,
+        "cost": 3.0350740986899325
+      }
+    },
+    {
+      "day": 23,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 369,
+        "required": 800
+      }
+    },
+    {
+      "day": 23,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 900.2228998195578,
+        "applePrice": 1.011657536618072
+      }
+    },
+    {
+      "day": 23,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 440,
+        "required": 800
+      }
+    },
+    {
+      "day": 24,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 24,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.011657536618072,
+        "cost": 3.034972609854216
+      }
+    },
+    {
+      "day": 24,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 392,
+        "required": 800
+      }
+    },
+    {
+      "day": 24,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 927.1879272097036,
+        "applePrice": 1.0116287239376118
+      }
+    },
+    {
+      "day": 24,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 460,
+        "required": 800
+      }
+    },
+    {
+      "day": 25,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 25,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0116287239376118,
+        "cost": 3.0348861718128353
+      }
+    },
+    {
+      "day": 25,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 415,
+        "required": 800
+      }
+    },
+    {
+      "day": 25,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 954.1530410378908,
+        "applePrice": 1.011604184177664
+      }
+    },
+    {
+      "day": 25,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 480,
+        "required": 800
+      }
+    },
+    {
+      "day": 26,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 26,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.011604184177664,
+        "cost": 3.034812552532992
+      }
+    },
+    {
+      "day": 26,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 438,
+        "required": 800
+      }
+    },
+    {
+      "day": 26,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 981.1182284853578,
+        "applePrice": 1.0115832836641163
+      }
+    },
+    {
+      "day": 26,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 500,
+        "required": 800
+      }
+    },
+    {
+      "day": 27,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 27,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0115832836641163,
+        "cost": 3.034749850992349
+      }
+    },
+    {
+      "day": 27,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 461,
+        "required": 800
+      }
+    },
+    {
+      "day": 27,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1008.0834786343654,
+        "applePrice": 1.011565482696728
+      }
+    },
+    {
+      "day": 27,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 520,
+        "required": 800
+      }
+    },
+    {
+      "day": 28,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 28,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.011565482696728,
+        "cost": 3.034696448090184
+      }
+    },
+    {
+      "day": 28,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 484,
+        "required": 800
+      }
+    },
+    {
+      "day": 28,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1035.048782186275,
+        "applePrice": 1.0115503216128032
+      }
+    },
+    {
+      "day": 28,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 540,
+        "required": 800
+      }
+    },
+    {
+      "day": 29,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 29,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0115503216128032,
+        "cost": 3.0346509648384097
+      }
+    },
+    {
+      "day": 29,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 507,
+        "required": 800
+      }
+    },
+    {
+      "day": 29,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1062.0141312214366,
+        "applePrice": 1.0115374089176246
+      }
+    },
+    {
+      "day": 29,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 560,
+        "required": 800
+      }
+    },
+    {
+      "day": 30,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 30,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0115374089176246,
+        "cost": 3.0346122267528735
+      }
+    },
+    {
+      "day": 30,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 530,
+        "required": 800
+      }
+    },
+    {
+      "day": 30,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1088.9795189946838,
+        "applePrice": 1.0115264111751407
+      }
+    },
+    {
+      "day": 30,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 580,
+        "required": 800
+      }
+    },
+    {
+      "day": 31,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 31,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0115264111751407,
+        "cost": 3.034579233525422
+      }
+    },
+    {
+      "day": 31,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 553,
+        "required": 800
+      }
+    },
+    {
+      "day": 31,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1115.9449397611584,
+        "applePrice": 1.0115170443978674
+      }
+    },
+    {
+      "day": 31,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 600,
+        "required": 800
+      }
+    },
+    {
+      "day": 32,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 32,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0115170443978674,
+        "cost": 3.0345511331936024
+      }
+    },
+    {
+      "day": 32,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 576,
+        "required": 800
+      }
+    },
+    {
+      "day": 32,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1142.9103886279647,
+        "applePrice": 1.0115090667136637
+      }
+    },
+    {
+      "day": 32,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 620,
+        "required": 800
+      }
+    },
+    {
+      "day": 33,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 33,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0115090667136637,
+        "cost": 3.034527200140991
+      }
+    },
+    {
+      "day": 33,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 599,
+        "required": 800
+      }
+    },
+    {
+      "day": 33,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1169.8758614278238,
+        "applePrice": 1.0115022721200273
+      }
+    },
+    {
+      "day": 33,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 640,
+        "required": 800
+      }
+    },
+    {
+      "day": 34,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 34,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0115022721200273,
+        "cost": 3.034506816360082
+      }
+    },
+    {
+      "day": 34,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 622,
+        "required": 800
+      }
+    },
+    {
+      "day": 34,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1196.8413546114637,
+        "applePrice": 1.011496485164627
+      }
+    },
+    {
+      "day": 34,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 660,
+        "required": 800
+      }
+    },
+    {
+      "day": 35,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 35,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.011496485164627,
+        "cost": 3.0344894554938815
+      }
+    },
+    {
+      "day": 35,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 645,
+        "required": 800
+      }
+    },
+    {
+      "day": 35,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1223.8068651559697,
+        "applePrice": 1.011491556414713
+      }
+    },
+    {
+      "day": 35,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 680,
+        "required": 800
+      }
+    },
+    {
+      "day": 36,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 36,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.011491556414713,
+        "cost": 3.0344746692441387
+      }
+    },
+    {
+      "day": 36,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 668,
+        "required": 800
+      }
+    },
+    {
+      "day": 36,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1250.7723904867255,
+        "applePrice": 1.011487358598411
+      }
+    },
+    {
+      "day": 36,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 700,
+        "required": 800
+      }
+    },
+    {
+      "day": 37,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 37,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.011487358598411,
+        "cost": 3.0344620757952327
+      }
+    },
+    {
+      "day": 37,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 691,
+        "required": 800
+      }
+    },
+    {
+      "day": 37,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1277.7379284109302,
+        "applePrice": 1.0114837833182668
+      }
+    },
+    {
+      "day": 37,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 720,
+        "required": 800
+      }
+    },
+    {
+      "day": 38,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 38,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0114837833182668,
+        "cost": 3.0344513499548005
+      }
+    },
+    {
+      "day": 38,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 714,
+        "required": 800
+      }
+    },
+    {
+      "day": 38,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1304.7034770609753,
+        "applePrice": 1.0114807382521678
+      }
+    },
+    {
+      "day": 38,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 740,
+        "required": 800
+      }
+    },
+    {
+      "day": 39,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 39,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0114807382521678,
+        "cost": 3.0344422147565036
+      }
+    },
+    {
+      "day": 39,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 737,
+        "required": 800
+      }
+    },
+    {
+      "day": 39,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1331.6690348462187,
+        "applePrice": 1.0114781447693713
+      }
+    },
+    {
+      "day": 39,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 760,
+        "required": 800
+      }
+    },
+    {
+      "day": 40,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 40,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0114781447693713,
+        "cost": 3.034434434308114
+      }
+    },
+    {
+      "day": 40,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 760,
+        "required": 800
+      }
+    },
+    {
+      "day": 40,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1358.6346004119105,
+        "applePrice": 1.0114759359000733
+      }
+    },
+    {
+      "day": 40,
+      "actor": "player",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 20,
+        "total": 780,
+        "required": 800
+      }
+    },
+    {
+      "day": 41,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 41,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0114759359000733,
+        "cost": 3.03442780770022
+      }
+    },
+    {
+      "day": 41,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 23,
+        "total": 783,
+        "required": 800
+      }
+    },
+    {
+      "day": 41,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1385.6001726042102,
+        "applePrice": 1.0114740546060925
+      }
+    },
+    {
+      "day": 41,
+      "actor": "player",
+      "type": "WONDER_COMPLETE",
+      "payload": {
+        "contributed": 20,
+        "total": 800,
+        "required": 800
+      }
+    },
+    {
+      "day": 42,
+      "actor": "player",
+      "type": "PRODUCTION",
+      "payload": {
+        "buildingId": "orchard",
+        "resource": "apple",
+        "qty": 20
+      }
+    },
+    {
+      "day": 42,
+      "actor": "tex",
+      "type": "BUY",
+      "payload": {
+        "resourceId": "apple",
+        "qty": 3,
+        "price": 1.0114740546060925,
+        "cost": 3.0344221638182773
+      }
+    },
+    {
+      "day": 42,
+      "actor": "tex",
+      "type": "WONDER_COMPLETE",
+      "payload": {
+        "contributed": 17,
+        "total": 800,
+        "required": 800
+      }
+    },
+    {
+      "day": 42,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 1,
+        "texGold": 1412.5657504403919,
+        "applePrice": 1.011472452308009
+      }
+    }
+  ]
+}

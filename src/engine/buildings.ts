@@ -1,4 +1,5 @@
-import type { GameState, BuildingId, GuildState, OwnedBuilding, GameEvent } from './types'
+import type { GameState, BuildingId, GuildState, OwnedBuilding, GameEvent, GuildId } from './types'
+import { getRival, updateRival } from './types'
 import buildingDefs from '../data/buildings.json'
 
 function getBuildingDef(id: BuildingId) {
@@ -65,24 +66,25 @@ export function buyBuilding(state: GameState, defId: BuildingId): GameState {
   }
 }
 
-// ─── Tex buys a building (internal) ──────────────────────────────────────────
+// ─── Rival buys a building (internal) ────────────────────────────────────────
 
-export function texBuyBuilding(state: GameState, defId: BuildingId): GameState {
-  const def = getBuildingDef(defId)
+export function rivalBuyBuilding(state: GameState, guildId: GuildId, defId: BuildingId): GameState {
+  const def   = getBuildingDef(defId)
+  const rival = getRival(state, guildId)
 
-  if (def.costGold !== undefined && state.tex.gold < def.costGold) return state
+  if (def.costGold !== undefined && rival.gold < def.costGold) return state
   if (def.costResources) {
     for (const [res, qty] of Object.entries(def.costResources)) {
-      const have = state.tex.inventory[res as keyof typeof state.tex.inventory] ?? 0
+      const have = rival.inventory[res as keyof typeof rival.inventory] ?? 0
       if (have < (qty as number)) return state
     }
   }
 
-  const instanceId = makeInstanceId(defId, 'tex')
+  const instanceId = makeInstanceId(defId, guildId)
   const newBuilding: OwnedBuilding = { defId, instanceId, shares: 100 }
 
-  let newGold = state.tex.gold
-  const newInventory = { ...state.tex.inventory }
+  let newGold = rival.gold
+  const newInventory = { ...rival.inventory }
 
   if (def.costGold !== undefined) newGold -= def.costGold
   if (def.costResources) {
@@ -94,25 +96,23 @@ export function texBuyBuilding(state: GameState, defId: BuildingId): GameState {
 
   const event: GameEvent = {
     day: state.day,
-    actor: 'tex',
+    actor: guildId,
     type: 'BUY_BUILDING',
     payload: { defId, instanceId, costGold: def.costGold, costResources: def.costResources },
   }
 
-  const newMap = addBuildingToMap(state, defId, instanceId, 'tex')
+  const updatedRival: GuildState = { ...rival, gold: newGold, inventory: newInventory, buildings: [...rival.buildings, newBuilding] }
+  const newMap = addBuildingToMap(state, defId, instanceId, guildId)
 
   return {
-    ...state,
-    tex: {
-      ...state.tex,
-      gold: newGold,
-      inventory: newInventory,
-      buildings: [...state.tex.buildings, newBuilding],
-    },
+    ...updateRival(state, updatedRival),
     map: newMap,
     log: [...state.log, event],
   }
 }
+
+/** @deprecated use rivalBuyBuilding */
+export const texBuyBuilding = (s: GameState, d: BuildingId) => rivalBuyBuilding(s, 'tex', d)
 
 // ─── Map placement ────────────────────────────────────────────────────────────
 
@@ -120,7 +120,7 @@ function addBuildingToMap(
   state: GameState,
   defId: BuildingId,
   instanceId: string,
-  owner: 'player' | 'tex'
+  owner: GuildId
 ): typeof state.map {
   let assigned = false
   const nodes = state.map.nodes.map(node => {
@@ -180,30 +180,28 @@ export function produceResources(state: GameState): GameState {
     }
   }
 
-  // Tex buildings
-  for (const building of s.tex.buildings) {
-    const def = getBuildingDef(building.defId)
-    if (def.produces && def.productionPerDay > 0) {
-      const degradation = building.degradation ?? 0
-      const produced = Math.round(def.productionPerDay * (building.shares / 100) * (1 - degradation))
-      s = {
-        ...s,
-        tex: {
-          ...s.tex,
+  // All rivals' buildings
+  for (const rival of s.rivals) {
+    let updatedRival = { ...rival }
+    for (const building of rival.buildings) {
+      const def = getBuildingDef(building.defId)
+      if (def.produces && def.productionPerDay > 0) {
+        const degradation = building.degradation ?? 0
+        const produced = Math.round(def.productionPerDay * (building.shares / 100) * (1 - degradation))
+        updatedRival = {
+          ...updatedRival,
           inventory: {
-            ...s.tex.inventory,
-            [def.produces]: (s.tex.inventory[def.produces as keyof typeof s.tex.inventory] ?? 0) + produced,
+            ...updatedRival.inventory,
+            [def.produces]: (updatedRival.inventory[def.produces as keyof typeof updatedRival.inventory] ?? 0) + produced,
           },
-        },
+        }
+      }
+      if (def.revenuePerDay && def.tier === 2) {
+        const rev = Math.round(def.revenuePerDay * (building.shares / 100))
+        updatedRival = { ...updatedRival, gold: updatedRival.gold + rev }
       }
     }
-    if (def.revenuePerDay && def.tier === 2) {
-      const rev = Math.round(def.revenuePerDay * (building.shares / 100))
-      s = {
-        ...s,
-        tex: { ...s.tex, gold: s.tex.gold + rev },
-      }
-    }
+    if (updatedRival !== rival) s = updateRival(s, updatedRival)
   }
 
   return s

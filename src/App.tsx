@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { GameState, ResourceId, BuildingId, WonderId } from './engine/types'
 import { initGame } from './engine/init'
 import { resolveEndOfDay, contributeToWonder } from './engine/day'
@@ -26,6 +26,17 @@ export default function App() {
   const [state, setState] = useState<GameState>(() => initGame())
   const [chronicle, setChronicle] = useState<ChronicleResult | null>(null)
   const [dayReveal, setDayReveal] = useState<DayRevealData | null>(null)
+  const [showMarket, setShowMarket] = useState(false)
+
+  const closeMarket = useCallback(() => setShowMarket(false), [])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeMarket()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [closeMarket])
 
   useEffect(() => {
     (window as any).__GAME_STATE__ = state
@@ -112,47 +123,112 @@ export default function App() {
       {/* HUD */}
       <HUD state={state} />
 
-      {/* Main layout */}
-      <div style={{
-        flex: 1,
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gridTemplateRows: '1fr auto',
-        gap: 8,
-        padding: 8,
-        overflow: 'hidden',
-        minHeight: 0,
-      }}>
-        {/* Spot Market */}
-        <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <SpotMarket
-            state={state}
-            onSell={handleSell}
-            onBuy={handleBuy}
-            onContribute={handleContribute}
-          />
-        </div>
+      {/* Main layout — WorldMap plein écran */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
+        <WorldMap
+          state={state}
+          onBuyBuilding={handleBuyBuilding}
+          onBuyShare={handleBuyShare}
+        />
 
-        {/* World Map */}
-        <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <WorldMap
-            state={state}
-            onBuyBuilding={handleBuyBuilding}
-            onBuyShare={handleBuyShare}
-          />
-        </div>
+        {/* Floating market button — bottom left */}
+        <button
+          onClick={() => setShowMarket(true)}
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 18px',
+            background: 'rgba(10,10,26,0.92)',
+            border: '1px solid var(--accent)',
+            borderRadius: 'var(--radius)',
+            color: 'var(--accent)',
+            fontFamily: 'var(--font-ui)',
+            fontSize: '0.85rem',
+            letterSpacing: '0.06em',
+            cursor: 'pointer',
+            backdropFilter: 'blur(4px)',
+            boxShadow: '0 2px 12px rgba(201,168,76,0.18)',
+          }}
+        >
+          ⚖ Marché
+        </button>
 
-        {/* End of Day button — spans full width */}
-        <div style={{ gridColumn: '1 / -1' }}>
-          <button
-            className="btn-primary"
-            style={{ width: '100%', padding: '14px', fontSize: '1rem', letterSpacing: '0.08em' }}
-            onClick={handleEndDay}
-          >
-            Terminer cette journée →
-          </button>
-        </div>
+        {/* End of day button — bottom right */}
+        <button
+          className="btn-primary"
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            right: 20,
+            zIndex: 10,
+            padding: '10px 24px',
+            fontSize: '0.9rem',
+            letterSpacing: '0.08em',
+          }}
+          onClick={handleEndDay}
+        >
+          Terminer cette journée →
+        </button>
       </div>
+
+      {/* SpotMarket modal overlay */}
+      {showMarket && (
+        <div
+          onClick={closeMarket}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            background: 'rgba(0,0,0,0.72)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backdropFilter: 'blur(2px)',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(900px, 96vw)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: 20,
+              position: 'relative',
+            }}
+          >
+            <button
+              onClick={closeMarket}
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                fontSize: '1.2rem',
+                cursor: 'pointer',
+                lineHeight: 1,
+                padding: '2px 6px',
+              }}
+              aria-label="Fermer"
+            >✕</button>
+            <SpotMarket
+              state={state}
+              onSell={handleSell}
+              onBuy={handleBuy}
+              onContribute={handleContribute}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Day reveal overlay */}
       {dayReveal && !chronicle && (

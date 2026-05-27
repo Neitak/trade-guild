@@ -58,29 +58,36 @@ function describePlayer(e: GameEvent): string | null {
   }
 }
 
-function describeTex(e: GameEvent): string | null {
-  if (e.actor !== 'tex') return null
+const RIVAL_NAMES: Record<string, string> = { tex: 'Tex', sam: 'Sam', rita: 'Rita' }
+
+function describeRival(e: GameEvent): string | null {
+  if (e.actor === 'player' || e.actor === 'system') return null
+  const name = RIVAL_NAMES[e.actor] ?? e.actor
   switch (e.type) {
     case 'BUY': {
       const icon = RESOURCE_ICONS[e.payload.resourceId as string] ?? ''
-      return `Tex achète ${e.payload.qty} ${icon} — il accumule`
+      return `${name} achète ${e.payload.qty} ${icon} — il accumule`
     }
     case 'SELL': {
       const icon = RESOURCE_ICONS[e.payload.resourceId as string] ?? ''
-      return `Tex vend ${e.payload.qty} ${icon} — prix en baisse`
+      return `${name} vend ${e.payload.qty} ${icon} — prix en baisse`
+    }
+    case 'BUY_BUILDING': {
+      const b = BUILDING_NAMES[e.payload.defId as string] ?? String(e.payload.defId)
+      return `${name} construit une ${b}`
     }
     case 'SELL_SHARE': {
       const b = BUILDING_NAMES[e.payload.defId as string] ?? String(e.payload.defId)
-      return `Tex rachète ${e.payload.transferredShares}% de sa ${b} — il contre-attaque`
+      return `${name} rachète ${e.payload.transferredShares}% de sa ${b} — contre-attaque`
     }
     case 'WONDER_PROGRESS': {
       const wName = e.payload.wonderId === 'grande_cathedrale' ? 'Grande Cathédrale' : 'Tour de Magie'
       const icon  = RESOURCE_ICONS[e.payload.resourceId as string] ?? ''
-      return `Tex apporte ${e.payload.contributed} ${icon} à la ${wName} (${e.payload.total}/${e.payload.required})`
+      return `${name} apporte ${e.payload.contributed} ${icon} à la ${wName} (${e.payload.total}/${e.payload.required})`
     }
     case 'WONDER_COMPLETE': {
       const wName = e.payload.wonderId === 'grande_cathedrale' ? 'Grande Cathédrale' : 'Tour de Magie'
-      return `✦ Tex érige la ${wName}.`
+      return `✦ ${name} érige la ${wName}.`
     }
     default: return null
   }
@@ -92,9 +99,9 @@ export function EndOfDay({ completedDay, nextDay, events, goldBefore, goldAfter,
   const deltaColor   = goldDelta > 0.5 ? 'var(--success)' : goldDelta < -0.5 ? 'var(--danger)' : 'var(--text-muted)'
 
   const playerLines = events.map(describePlayer).filter(Boolean) as string[]
-  const texLines    = events.map(describeTex).filter(Boolean) as string[]
-  const hasWonderWin = events.some(e => e.type === 'WONDER_COMPLETE' && e.actor === 'player')
-  const hasWonderLoss = events.some(e => e.type === 'WONDER_COMPLETE' && e.actor === 'tex')
+  const rivalLines  = events.map(describeRival).filter(Boolean) as string[]
+  const hasWonderWin  = events.some(e => e.type === 'WONDER_COMPLETE' && e.actor === 'player')
+  const hasWonderLoss = events.some(e => e.type === 'WONDER_COMPLETE' && e.actor !== 'player' && e.actor !== 'system')
 
   return (
     <div style={{
@@ -161,14 +168,14 @@ export function EndOfDay({ completedDay, nextDay, events, goldBefore, goldAfter,
           </div>
         )}
 
-        {/* Tex events */}
-        {texLines.length > 0 && (
+        {/* Rival events */}
+        {rivalLines.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontFamily: 'var(--font-ui)', fontSize: '0.68rem', color: 'var(--text-muted)', letterSpacing: '0.1em', marginBottom: 8 }}>
-              TEX AUJOURD'HUI
+              RIVAUX AUJOURD'HUI
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {texLines.map((line, i) => (
+              {rivalLines.map((line, i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, fontSize: '0.85rem', color: 'var(--tex-color)' }}>
                   <span style={{ flexShrink: 0 }}>⚔</span>
                   <span>{line}</span>
@@ -199,7 +206,7 @@ export function EndOfDay({ completedDay, nextDay, events, goldBefore, goldAfter,
         )}
 
         {/* Empty day */}
-        {playerLines.length === 0 && texLines.length === 0 && rumors.length === 0 && (
+        {playerLines.length === 0 && rivalLines.length === 0 && rumors.length === 0 && (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', marginBottom: 16 }}>
             Une journée calme.
           </div>

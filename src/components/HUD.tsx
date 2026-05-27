@@ -5,13 +5,11 @@ interface Props {
 }
 
 export function HUD({ state }: Props) {
-  const { player, tex, day, wonders, market } = state
+  const { player, rivals, day, wonders, market } = state
   const applePrice = market.resources.apple.currentPrice
   const woodPrice  = market.resources.wood.currentPrice
   const playerApples = player.inventory.apple ?? 0
   const playerWood   = player.inventory.wood  ?? 0
-  const texApples = tex.inventory.apple ?? 0
-  const texWood   = tex.inventory.wood  ?? 0
 
   const tower     = wonders.find(w => w.id === 'tower_of_magic')!
   const cathedrale = wonders.find(w => w.id === 'grande_cathedrale')!
@@ -20,9 +18,16 @@ export function HUD({ state }: Props) {
   const cathedReq    = cathedrale.requiredResources.wood ?? 400
 
   const playerTowerPct  = Math.round(((tower.playerContributed.apple    ?? 0) / towerReq)  * 100)
-  const texTowerPct     = Math.round(((tower.texContributed.apple       ?? 0) / towerReq)  * 100)
   const playerCathedPct = Math.round(((cathedrale.playerContributed.wood ?? 0) / cathedReq) * 100)
-  const texCathedPct    = Math.round(((cathedrale.texContributed.wood    ?? 0) / cathedReq) * 100)
+  // Best rival progress for wonder bars
+  const bestTowerPct    = Math.round((Math.max(...rivals.map(r => tower.rivalContributed[r.id]?.apple ?? 0)) / towerReq) * 100)
+  const bestCathedPct   = Math.round((Math.max(...rivals.map(r => cathedrale.rivalContributed[r.id]?.wood ?? 0)) / cathedReq) * 100)
+
+  // Classement par valeur nette décroissante
+  const allGuilds = [
+    { id: player.id, name: 'Vous', color: player.color, worth: player.netWorthHistory.at(-1)?.value ?? Math.floor(player.gold), gold: Math.floor(player.gold) },
+    ...rivals.map(r => ({ id: r.id, name: r.name, color: r.color, worth: r.netWorthHistory.at(-1)?.value ?? Math.floor(r.gold), gold: Math.floor(r.gold) })),
+  ].sort((a, b) => b.worth - a.worth)
 
   return (
     <div style={{
@@ -69,9 +74,8 @@ export function HUD({ state }: Props) {
       <WonderBar
         label="TOUR DE MAGIE"
         playerPct={playerTowerPct}
-        texPct={texTowerPct}
+        rivalPct={bestTowerPct}
         playerContrib={tower.playerContributed.apple ?? 0}
-        texContrib={tower.texContributed.apple ?? 0}
         required={towerReq}
         unit="🍎"
       />
@@ -82,19 +86,24 @@ export function HUD({ state }: Props) {
       <WonderBar
         label="GRANDE CATHÉDRALE"
         playerPct={playerCathedPct}
-        texPct={texCathedPct}
+        rivalPct={bestCathedPct}
         playerContrib={cathedrale.playerContributed.wood ?? 0}
-        texContrib={cathedrale.texContributed.wood ?? 0}
         required={cathedReq}
         unit="🪵"
       />
 
       <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
 
-      {/* Tex status */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-        <span>Tex : <span style={{ color: 'var(--tex-color)', fontFamily: 'var(--font-mono)' }}>{Math.floor(tex.gold)} or</span></span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>{texApples} 🍎  {texWood} 🪵</span>
+      {/* Classement guildes */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {allGuilds.map((g, i) => (
+          <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', fontFamily: 'var(--font-mono)' }}>
+            {i === 0 && <span style={{ color: 'var(--accent)', fontSize: '0.65rem' }}>🏆</span>}
+            <span style={{ color: g.color, fontWeight: g.id === 'player' ? 600 : 400 }}>{g.id === 'player' ? 'Toi' : g.name.split(' ')[0]}</span>
+            <span style={{ color: 'var(--text-dim)' }}>{g.gold}g</span>
+            {i < allGuilds.length - 1 && <span style={{ color: 'var(--border)', margin: '0 2px' }}>·</span>}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -105,16 +114,15 @@ export function HUD({ state }: Props) {
 interface WonderBarProps {
   label: string
   playerPct: number
-  texPct: number
+  rivalPct: number
   playerContrib: number
-  texContrib: number
   required: number
   unit: string
 }
 
-function WonderBar({ label, playerPct, texPct, playerContrib, texContrib, required, unit }: WonderBarProps) {
-  const playerLeads = playerPct > texPct + 10
-  const texLeads    = texPct > playerPct + 10
+function WonderBar({ label, playerPct, rivalPct, playerContrib, required, unit }: WonderBarProps) {
+  const playerLeads = playerPct > rivalPct + 10
+  const texLeads    = rivalPct > playerPct + 10
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 220 }}>
@@ -125,7 +133,7 @@ function WonderBar({ label, playerPct, texPct, playerContrib, texContrib, requir
           {label}
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--text-muted)' }}>
-          {playerContrib + texContrib}/{required} {unit}
+          {playerContrib}/{required} {unit}
         </span>
       </div>
 
@@ -149,11 +157,11 @@ function WonderBar({ label, playerPct, texPct, playerContrib, texContrib, requir
         </span>
       </div>
 
-      {/* Tex bar */}
+      {/* Best rival bar */}
       <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
         <div style={{ flex: 1, height: 7, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
           <div style={{
-            height: '100%', width: `${texPct}%`,
+            height: '100%', width: `${rivalPct}%`,
             background: 'var(--tex-color)',
             borderRadius: 4,
             transition: 'width 0.5s ease',
@@ -165,15 +173,15 @@ function WonderBar({ label, playerPct, texPct, playerContrib, texContrib, requir
           color: texLeads ? 'var(--tex-color)' : 'var(--text-muted)',
           width: 28, textAlign: 'right', fontWeight: texLeads ? 500 : 400,
         }}>
-          {texPct}%
+          {rivalPct}%
         </span>
       </div>
 
-      {/* Player / Tex labels */}
+      {/* Player / Rivals label */}
       <div style={{ display: 'flex', fontSize: '0.58rem', color: 'var(--text-muted)', paddingRight: 35 }}>
         <span style={{ color: 'var(--player-color)', opacity: 0.7 }}>Toi</span>
         <span style={{ flex: 1 }} />
-        <span style={{ color: 'var(--tex-color)', opacity: 0.7 }}>Tex</span>
+        <span style={{ color: 'var(--tex-color)', opacity: 0.7 }}>Best rival</span>
       </div>
 
     </div>

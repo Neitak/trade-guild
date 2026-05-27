@@ -1,0 +1,332 @@
+{
+  "winner": "player",
+  "days": 26,
+  "playerFinalGold": 10,
+  "texFinalGold": 450,
+  "priceMin": 1,
+  "priceMax": 1,
+  "priceAvg": 1,
+  "archetype": "mixed",
+  "log": [
+    {
+      "day": 1,
+      "actor": "tex",
+      "type": "BUY_BUILDING",
+      "payload": {
+        "defId": "orchard",
+        "instanceId": "tex_orchard_1779709232170_s8vk",
+        "costGold": 50
+      }
+    },
+    {
+      "day": 1,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 2,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 3,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 4,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 5,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 6,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 100,
+        "total": 100,
+        "required": 500
+      }
+    },
+    {
+      "day": 6,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 7,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 8,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 9,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 10,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 11,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 100,
+        "total": 200,
+        "required": 500
+      }
+    },
+    {
+      "day": 11,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 12,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 13,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 14,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 15,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 16,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 100,
+        "total": 300,
+        "required": 500
+      }
+    },
+    {
+      "day": 16,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 17,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 18,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 19,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 20,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 21,
+      "actor": "tex",
+      "type": "WONDER_PROGRESS",
+      "payload": {
+        "contributed": 100,
+        "total": 400,
+        "required": 500
+      }
+    },
+    {
+      "day": 21,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 22,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 23,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 24,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 25,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    },
+    {
+      "day": 26,
+      "actor": "tex",
+      "type": "WONDER_COMPLETE",
+      "payload": {
+        "contributed": 100,
+        "total": 500,
+        "required": 500
+      }
+    },
+    {
+      "day": 26,
+      "actor": "system",
+      "type": "END_DAY",
+      "payload": {
+        "playerGold": 10,
+        "texGold": 450,
+        "applePrice": 1
+      }
+    }
+  ]
+}

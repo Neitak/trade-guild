@@ -60,12 +60,13 @@ export function runGame(config: SimConfig = {}): SimResult {
   const prices = priceHistory.map(p => p.price)
 
   const playerWorth = state.player.netWorthHistory.at(-1)?.value ?? 0
-  const texWorth = state.tex.netWorthHistory.at(-1)?.value ?? 0
+  const tex = state.rivals.find(r => r.id === 'tex')!
+  const texWorth = tex.netWorthHistory.at(-1)?.value ?? 0
   return {
-    winner: state.wonders.find(w => w.complete)?.completedBy ?? (playerWorth >= texWorth ? 'player' : 'tex'),
+    winner: (state.wonders.find(w => w.complete)?.completedBy ?? (playerWorth >= texWorth ? 'player' : 'tex')) as any,
     days: state.day,
     playerFinalGold: state.player.gold,
-    texFinalGold: state.tex.gold,
+    texFinalGold: tex.gold,
     priceMin: Math.min(...prices),
     priceMax: Math.max(...prices),
     priceAvg: prices.reduce((a, b) => a + b, 0) / prices.length,

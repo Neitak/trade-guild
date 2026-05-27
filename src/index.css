@@ -121,3 +121,9 @@ button:disabled {
   from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes nodeAcquired {
+  0%   { r: 32; opacity: 0.9; stroke-width: 3; }
+  60%  { r: 48; opacity: 0.5; stroke-width: 1.5; }
+  100% { r: 58; opacity: 0; stroke-width: 0.5; }
+}

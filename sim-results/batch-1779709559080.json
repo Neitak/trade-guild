@@ -1,0 +1,13 @@
+{
+  "games": 50,
+  "playerWins": 0,
+  "texWins": 50,
+  "draws": 0,
+  "avgDays": 43,
+  "avgPriceMin": 0.9996000000000008,
+  "avgPriceMax": 1,
+  "archetypes": {
+    "mixed": 50
+  },
+  "outOfSpec": 0
+}

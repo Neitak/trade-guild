@@ -1,4 +1,5 @@
-import type { GameState, BuildingId, GameEvent, OwnedBuilding } from './types'
+import type { GameState, BuildingId, GameEvent, OwnedBuilding, GuildId } from './types'
+import { getRival, updateRival } from './types'
 import buildingDefs from '../data/buildings.json'
 
 const SHARE_STEP = 10 // percent per transaction
@@ -7,8 +8,13 @@ function getBuildingDef(id: BuildingId) {
   return (buildingDefs as any[]).find(b => b.id === id)!
 }
 
-function buildingCurrentYield(state: GameState, guildId: 'player' | 'tex', instanceId: string): number {
-  const guild = guildId === 'player' ? state.player : state.tex
+function getGuild(state: GameState, guildId: GuildId) {
+  if (guildId === 'player') return state.player
+  return getRival(state, guildId)
+}
+
+function buildingCurrentYield(state: GameState, guildId: GuildId, instanceId: string): number {
+  const guild = getGuild(state, guildId)
   const building = guild.buildings.find(b => b.instanceId === instanceId)
   if (!building) return 0
   const def = getBuildingDef(building.defId)
@@ -16,162 +22,75 @@ function buildingCurrentYield(state: GameState, guildId: 'player' | 'tex', insta
   return def.revenuePerDay ?? def.productionPerDay ?? 0
 }
 
-function sharePriceInGold(state: GameState, guildId: 'player' | 'tex', instanceId: string): number {
+function sharePriceInGold(state: GameState, guildId: GuildId, instanceId: string): number {
   const yieldPerDay = buildingCurrentYield(state, guildId, instanceId)
   // Price per 10% share = yield * 3 (roughly 30 days payback)
   return Math.max(5, Math.round(yieldPerDay * 3))
 }
 
-// ─── Player buys a share of Tex's building ───────────────────────────────────
+// ─── Player buys a share of a rival's building ───────────────────────────────
 
-export function buyShare(state: GameState, texInstanceId: string): GameState {
-  const texBuilding = state.tex.buildings.find(b => b.instanceId === texInstanceId)
-  if (!texBuilding) return state
-  if (texBuilding.shares <= 0) return state // Tex has nothing left to sell
+export function buyShare(state: GameState, rivalInstanceId: string): GameState {
+  // Find which rival owns this building
+  const ownerRival = state.rivals.find(r => r.buildings.some(b => b.instanceId === rivalInstanceId))
+  if (!ownerRival) return state
+  const rivalBuilding = ownerRival.buildings.find(b => b.instanceId === rivalInstanceId)!
+  if (rivalBuilding.shares <= 0) return state
 
-  const cost = sharePriceInGold(state, 'tex', texInstanceId)
+  const cost = sharePriceInGold(state, ownerRival.id, rivalInstanceId)
   if (state.player.gold < cost) return state
 
-  const transferredShares = Math.min(SHARE_STEP, texBuilding.shares)
+  const transferredShares = Math.min(SHARE_STEP, rivalBuilding.shares)
 
-  // Find or create player's ownership of this building
-  const existingPlayerBuilding = state.player.buildings.find(
-    b => b.instanceId === texInstanceId
-  )
-
+  const existingPlayerBuilding = state.player.buildings.find(b => b.instanceId === rivalInstanceId)
   const updatedPlayerBuildings = existingPlayerBuilding
     ? state.player.buildings.map(b =>
-        b.instanceId === texInstanceId
-          ? { ...b, shares: b.shares + transferredShares }
-          : b
+        b.instanceId === rivalInstanceId ? { ...b, shares: b.shares + transferredShares } : b
       )
-    : [
-        ...state.player.buildings,
-        { defId: texBuilding.defId, instanceId: texInstanceId, shares: transferredShares },
-      ]
+    : [...state.player.buildings, { defId: rivalBuilding.defId, instanceId: rivalInstanceId, shares: transferredShares }]
 
-  const updatedTexBuildings = state.tex.buildings.map(b =>
-    b.instanceId === texInstanceId
-      ? { ...b, shares: b.shares - transferredShares }
-      : b
-  )
-
-  const playerShares =
-    (existingPlayerBuilding?.shares ?? 0) + transferredShares
-
-  // Transfer map ownership when player crosses 51%
+  const playerShares = (existingPlayerBuilding?.shares ?? 0) + transferredShares
   const controlTransferred = playerShares >= 51
+
+  const updatedRival = {
+    ...ownerRival,
+    buildings: ownerRival.buildings.map(b =>
+      b.instanceId === rivalInstanceId ? { ...b, shares: b.shares - transferredShares } : b
+    ),
+  }
+
   const updatedMap = controlTransferred
-    ? {
-        nodes: state.map.nodes.map(n =>
-          n.buildingInstanceId === texInstanceId ? { ...n, ownedBy: 'player' as const } : n
-        ),
-      }
+    ? { nodes: state.map.nodes.map(n => n.buildingInstanceId === rivalInstanceId ? { ...n, ownedBy: 'player' as const } : n) }
     : state.map
 
   const event: GameEvent = {
     day: state.day,
     actor: 'player',
     type: 'BUY_SHARE',
-    payload: {
-      instanceId: texInstanceId,
-      defId: texBuilding.defId,
-      cost,
-      transferredShares,
-      playerTotalShares: playerShares,
-    },
+    payload: { instanceId: rivalInstanceId, defId: rivalBuilding.defId, cost, transferredShares, playerTotalShares: playerShares },
   }
 
   return {
-    ...state,
-    player: {
-      ...state.player,
-      gold: state.player.gold - cost,
-      buildings: updatedPlayerBuildings,
-    },
-    tex: {
-      ...state.tex,
-      buildings: updatedTexBuildings,
-    },
+    ...updateRival({ ...state, player: { ...state.player, gold: state.player.gold - cost, buildings: updatedPlayerBuildings } }, updatedRival),
     map: updatedMap,
     log: [...state.log, event],
   }
 }
 
-// ─── Tex buys back a share of his own building ───────────────────────────────
-
-export function texBuyBackShare(state: GameState, instanceId: string): GameState {
-  const playerBuilding = state.player.buildings.find(b => b.instanceId === instanceId)
-  if (!playerBuilding || playerBuilding.shares <= 0) return state
-
-  const cost = sharePriceInGold(state, 'player', instanceId)
-  if (state.tex.gold < cost) return state
-
-  const transferredShares = Math.min(SHARE_STEP, playerBuilding.shares)
-
-  const updatedPlayerBuildings = state.player.buildings
-    .map(b =>
-      b.instanceId === instanceId
-        ? { ...b, shares: b.shares - transferredShares }
-        : b
-    )
-    .filter(b => b.shares > 0)
-
-  const updatedTexBuildings = state.tex.buildings.map(b =>
-    b.instanceId === instanceId
-      ? { ...b, shares: b.shares + transferredShares }
-      : b
-  )
-
-  const texBuilding2 = updatedTexBuildings.find(b => b.instanceId === instanceId)
-  const texSharesAfter = texBuilding2?.shares ?? 0
-  const texRegainsControl = texSharesAfter >= 51
-
-  const updatedMap2 = texRegainsControl
-    ? {
-        nodes: state.map.nodes.map(n =>
-          n.buildingInstanceId === instanceId ? { ...n, ownedBy: 'tex' as const } : n
-        ),
-      }
-    : state.map
-
-  const buybackBuilding = state.tex.buildings.find(b => b.instanceId === instanceId)
-
-  const event: GameEvent = {
-    day: state.day,
-    actor: 'tex',
-    type: 'SELL_SHARE',
-    payload: { instanceId, defId: buybackBuilding?.defId, transferredShares, cost },
-  }
-
-  return {
-    ...state,
-    tex: {
-      ...state.tex,
-      gold: state.tex.gold - cost,
-      buildings: updatedTexBuildings,
-    },
-    player: {
-      ...state.player,
-      buildings: updatedPlayerBuildings,
-    },
-    map: updatedMap2,
-    log: [...state.log, event],
-  }
-}
+// (rivalBuyBackShare is handled in ai.ts — shares.ts only exposes player-facing actions)
 
 // ─── Preview helper for UI tooltip ───────────────────────────────────────────
 
-export function previewBuyShare(state: GameState, texInstanceId: string) {
-  const texBuilding = state.tex.buildings.find(b => b.instanceId === texInstanceId)
-  if (!texBuilding) return null
+export function previewBuyShare(state: GameState, rivalInstanceId: string) {
+  const ownerRival = state.rivals.find(r => r.buildings.some(b => b.instanceId === rivalInstanceId))
+  if (!ownerRival) return null
+  const rivalBuilding = ownerRival.buildings.find(b => b.instanceId === rivalInstanceId)!
 
-  const cost = sharePriceInGold(state, 'tex', texInstanceId)
-  const existingPlayerShares =
-    state.player.buildings.find(b => b.instanceId === texInstanceId)?.shares ?? 0
+  const cost = sharePriceInGold(state, ownerRival.id, rivalInstanceId)
+  const existingPlayerShares = state.player.buildings.find(b => b.instanceId === rivalInstanceId)?.shares ?? 0
   const newPlayerShares = existingPlayerShares + SHARE_STEP
-  const def = getBuildingDef(texBuilding.defId)
-  const yieldPerDay = buildingCurrentYield(state, 'tex', texInstanceId)
+  const def = getBuildingDef(rivalBuilding.defId)
+  const yieldPerDay = buildingCurrentYield(state, ownerRival.id, rivalInstanceId)
   const playerCutPerDay = Math.round(yieldPerDay * (SHARE_STEP / 100))
   const controlTransferred = newPlayerShares >= 51
 
@@ -182,5 +101,7 @@ export function previewBuyShare(state: GameState, texInstanceId: string) {
     playerCutPerDay,
     controlTransferred,
     buildingName: def.name,
+    ownerName: ownerRival.name,
+    ownerColor: ownerRival.color,
   }
 }
