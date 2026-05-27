@@ -87,7 +87,7 @@ export interface ResourceMarket {
   volatility: number            // 0.08 calme → 0.15 volatile
   elasticityK: number
   volumeAvailable: number
-  priceHistory: Array<{ day: number; price: number; texMarker?: boolean }>
+  priceHistory: Array<{ day: number; price: number; marker?: GuildId }>
 }
 
 export interface MarketState {

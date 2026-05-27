@@ -3,7 +3,8 @@ import {
   ComposedChart, Area, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import type { GameState, ResourceId, WonderId, ResourceMarket } from '../engine/types'
+import type { GameState, ResourceId, WonderId, ResourceMarket, GuildId } from '../engine/types'
+import { GUILD_COLORS } from '../engine/types'
 import { previewSell, previewBuy } from '../engine/market'
 
 interface Props {
@@ -57,9 +58,18 @@ function calcMovingAverage(data: { day: number; price: number }[], window: numbe
   })
 }
 
+const RIVAL_MARKER_KEYS: Array<{ key: string; id: GuildId; label: string }> = [
+  { key: 'marker_player', id: 'player', label: 'Toi'  },
+  { key: 'marker_tex',    id: 'tex',    label: 'Tex'  },
+  { key: 'marker_sam',    id: 'sam',    label: 'Sam'  },
+  { key: 'marker_rita',   id: 'rita',   label: 'Rita' },
+]
+
 function MiniTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
-  const price = payload.find((p: any) => p.dataKey === 'price')?.value
+  const price   = payload.find((p: any) => p.dataKey === 'price')?.value
+  const markers = RIVAL_MARKER_KEYS
+    .filter(mk => payload.find((p: any) => p.dataKey === mk.key && p.value != null))
   return (
     <div style={{
       background: 'rgba(8,8,20,0.96)',
@@ -68,9 +78,19 @@ function MiniTooltip({ active, payload, label }: any) {
       padding: '4px 8px',
       fontFamily: 'var(--font-mono)',
       fontSize: 10,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 2,
     }}>
-      <span style={{ color: 'var(--text-muted)' }}>J{label} </span>
-      {price != null && <span style={{ color: 'var(--accent)' }}>{price.toFixed(2)}</span>}
+      <div>
+        <span style={{ color: 'var(--text-muted)' }}>J{label} </span>
+        {price != null && <span style={{ color: 'var(--accent)' }}>{price.toFixed(2)}</span>}
+      </div>
+      {markers.map(mk => (
+        <div key={mk.key} style={{ color: GUILD_COLORS[mk.id], fontSize: 9 }}>
+          ● {mk.label}
+        </div>
+      ))}
     </div>
   )
 }
@@ -108,9 +128,35 @@ function ResourceCard({ resourceId, resourceMarket, state, onSell, onBuy, onCont
   const chartData = priceHistory.map((p, i) => ({
     day: p.day,
     price: parseFloat(p.price.toFixed(3)),
-    texMarker: p.texMarker ? p.price : undefined,
+    marker_player: p.marker === 'player' ? p.price : undefined,
+    marker_tex:    p.marker === 'tex'    ? p.price : undefined,
+    marker_sam:    p.marker === 'sam'    ? p.price : undefined,
+    marker_rita:   p.marker === 'rita'   ? p.price : undefined,
     ma3: ma3[i]?.ma,
   }))
+
+  // Intel panel — yesterday's rival trades on this resource
+  const yesterday = state.day - 1
+  type IntelEntry = { actor: GuildId; bought: number; sold: number; priceBuy: number; priceSell: number; count: number }
+  const intelMap: Partial<Record<GuildId, IntelEntry>> = {}
+  for (const ev of state.log) {
+    if (ev.day !== yesterday) continue
+    if (ev.actor === 'player' || ev.actor === 'system') continue
+    if (ev.payload['resourceId'] !== resourceId) continue
+    if (ev.type !== 'BUY' && ev.type !== 'SELL') continue
+    const actor = ev.actor as GuildId
+    if (!intelMap[actor]) intelMap[actor] = { actor, bought: 0, sold: 0, priceBuy: 0, priceSell: 0, count: 0 }
+    const entry = intelMap[actor]!
+    if (ev.type === 'BUY') {
+      entry.bought += ev.payload['qty'] as number
+      entry.priceBuy = ev.payload['price'] as number
+    } else {
+      entry.sold += ev.payload['qty'] as number
+      entry.priceSell = ev.payload['price'] as number
+    }
+    entry.count++
+  }
+  const intelEntries = Object.values(intelMap) as IntelEntry[]
 
   const sellPreview = previewSell(state, resourceId, qtySell)
   const buyPreview  = previewBuy(state, resourceId, qtyBuy)
@@ -172,7 +218,15 @@ function ResourceCard({ resourceId, resourceMarket, state, onSell, onBuy, onCont
             <Area type="monotone" dataKey="price" stroke="none" fill={`url(#${meta.gradientId})`} fillOpacity={1} />
             <Line type="monotone" dataKey="price" stroke={meta.chartColor} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: meta.chartHex, strokeWidth: 0 }} />
             <Line type="monotone" dataKey="ma3" stroke="#6a9fd8" strokeWidth={1} strokeDasharray="3 2" dot={false} activeDot={false} connectNulls={false} />
-            <Line type="monotone" dataKey="texMarker" stroke="var(--tex-color)" strokeWidth={0} dot={{ r: 3, fill: 'var(--tex-color)', strokeWidth: 0 }} activeDot={false} connectNulls={false} />
+            {RIVAL_MARKER_KEYS.map(mk => (
+              <Line key={mk.key} type="monotone" dataKey={mk.key}
+                strokeWidth={0}
+                dot={{ r: 4, fill: GUILD_COLORS[mk.id], strokeWidth: 1.5, stroke: 'rgba(0,0,0,0.5)' }}
+                activeDot={false}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ))}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -182,6 +236,44 @@ function ResourceCard({ resourceId, resourceMarket, state, onSell, onBuy, onCont
         <span>Stock <span style={{ color: 'var(--text-dim)' }}>{playerQty}</span> {meta.icon}</span>
         <span>Vol. <span style={{ color: 'var(--text-dim)' }}>{Math.round(resourceMarket.volumeAvailable)}</span></span>
       </div>
+
+      {/* Intel panel — yesterday's rival activity */}
+      {state.day > 1 && (
+        <div style={{
+          background: 'rgba(255,255,255,0.015)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 'var(--radius)',
+          padding: '6px 8px',
+          fontSize: '0.68rem',
+          fontFamily: 'var(--font-mono)',
+        }}>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.63rem', letterSpacing: '0.07em', marginBottom: 4, fontFamily: 'var(--font-ui)' }}>
+            ◈ HIER (J{state.day - 1})
+          </div>
+          {intelEntries.length === 0 ? (
+            <div style={{ color: 'var(--text-dim)', fontSize: '0.65rem' }}>Aucune activité rivale</div>
+          ) : (
+            intelEntries.map(e => (
+              <div key={e.actor} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 2 }}>
+                <span style={{ color: GUILD_COLORS[e.actor], minWidth: 28 }}>{e.actor.charAt(0).toUpperCase() + e.actor.slice(1)}</span>
+                {e.bought > 0 && (
+                  <span style={{ color: 'var(--success)' }}>
+                    ↑ {e.bought} {meta.icon}
+                    <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>à {e.priceBuy.toFixed(2)}</span>
+                  </span>
+                )}
+                {e.sold > 0 && (
+                  <span style={{ color: 'var(--danger)', marginLeft: e.bought > 0 ? 6 : 0 }}>
+                    ↓ {e.sold} {meta.icon}
+                    <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>à {e.priceSell.toFixed(2)}</span>
+                  </span>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
 
       {/* Trade actions */}
       <div style={{ display: 'flex', gap: 8 }}>
