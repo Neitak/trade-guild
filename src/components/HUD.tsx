@@ -4,6 +4,12 @@ interface Props {
   state: GameState
 }
 
+function formatGold(g: number): string {
+  if (g >= 100) return Math.round(g).toString()
+  if (g >= 10)  return g.toFixed(1)
+  return g.toFixed(2)
+}
+
 export function HUD({ state }: Props) {
   const { player, rivals, day, tickOfDay, wonders, market } = state
   const woodPrice  = market.resources.wood.currentPrice
@@ -23,8 +29,8 @@ export function HUD({ state }: Props) {
 
   // Classement par valeur nette décroissante
   const allGuilds = [
-    { id: player.id, name: 'Vous', color: player.color, worth: player.netWorthHistory.at(-1)?.value ?? Math.floor(player.gold), gold: Math.floor(player.gold) },
-    ...rivals.map(r => ({ id: r.id, name: r.name, color: r.color, worth: r.netWorthHistory.at(-1)?.value ?? Math.floor(r.gold), gold: Math.floor(r.gold) })),
+    { id: player.id, name: 'Vous', color: player.color, worth: player.netWorthHistory.at(-1)?.value ?? player.gold, gold: player.gold },
+    ...rivals.map(r => ({ id: r.id, name: r.name, color: r.color, worth: r.netWorthHistory.at(-1)?.value ?? r.gold, gold: r.gold })),
   ].sort((a, b) => b.worth - a.worth)
 
   return (
@@ -50,7 +56,7 @@ export function HUD({ state }: Props) {
       {/* Gold */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <span style={{ fontSize: '1.8rem', fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--accent)', lineHeight: 1 }}>
-          {Math.floor(player.gold)}
+          {formatGold(player.gold)}
         </span>
         <span style={{ color: 'var(--accent-dim)', fontSize: '0.85rem' }}>or</span>
       </div>
@@ -94,7 +100,7 @@ export function HUD({ state }: Props) {
           <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', fontFamily: 'var(--font-mono)' }}>
             {i === 0 && <span style={{ color: 'var(--accent)', fontSize: '0.65rem' }}>🏆</span>}
             <span style={{ color: g.color, fontWeight: g.id === 'player' ? 600 : 400 }}>{g.id === 'player' ? 'Toi' : g.name.split(' ')[0]}</span>
-            <span style={{ color: 'var(--text-dim)' }}>{g.gold}g</span>
+            <span style={{ color: 'var(--text-dim)' }}>{formatGold(g.gold)}g</span>
             {i < allGuilds.length - 1 && <span style={{ color: 'var(--border)', margin: '0 2px' }}>·</span>}
           </div>
         ))}
