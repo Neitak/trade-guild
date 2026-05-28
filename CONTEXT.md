@@ -1,47 +1,61 @@
-# CONTEXT.md — Trade Guild v5
+# CONTEXT.md — Trade Guild v6
 
-> Mis à jour : 2026-05-25 — session grill-me design v5. Remplace intégralement le CONTEXT.md v4.
+> Mis à jour : 2026-05-28 — session 9. Ressource Phase 0 = Bois (pas Patate). Merveilles → Immeubles WIP.
 
 ## Termes du domaine
 
-**Journée** — unité de temps principale. La journée tourne en temps réel (bâtiments produisent, prix bougent, IA agit). Le joueur peut la terminer à tout moment avec le bouton "Fin de journée" ou la skiper si rien d'intéressant ne se passe. Modèle Stardew Valley : la nuit révèle ce qu'on a gagné, le matin est une nouvelle promesse.
+**Guilde** — entité jouable. Chaque joueur (humain ou IA) contrôle une guilde. Couleur distincte visible sur la carte. Brice et Raph sont les noms des guildes rivales (frères IRL du joueur — IA en attendant le multijoueur).
 
-**Ressource** — bien produit par un bâtiment d'extraction et échangeable sur le marché spot. Les ressources ne se transforment pas en d'autres ressources (pas de crafting). Elles servent de **monnaie** pour acheter des bâtiments commerciaux (Tier 2) ou se vendent contre de l'or sur le spot. Exemples : pommes, fer, bois, cristaux magiques.
+**Tick** — unité de temps atomique. 1 tick = 3 secondes. Les prix bougent à chaque tick. Les bâtiments produisent à chaque tick. Le jeu est continu, pas tour par tour.
 
-**Nœud de ressource** — emplacement géographique sur la carte produisant une ressource spécifique. Chaque nœud se dégrade lentement (production passe de 100% → 80% → 60%...). Jamais complètement vide, mais le signal de dégradation force le joueur à anticiper un pivot. Les nœuds n'apparaissent pas via exploration — ils sont visibles dès le départ. De nouveaux nœuds/bâtiments apparaissent progressivement parce que l'économie florissante attire de nouveaux travailleurs.
+**Bois** — ressource de départ (Phase 0). Appartient à la catégorie LOGEMENT. Première ressource accessible au joueur, marché toujours ouvert dès le début. Le joueur démarre avec 1 bois et 0 or.
 
-**Bâtiment d'extraction (Tier 1)** — acheté avec de l'or, produit des ressources chaque journée. Exemples : verger (→ pommes), mine (→ fer), bûcheron (→ bois). La production se dépose automatiquement dans l'inventaire du joueur.
+**Patate** — ressource NOURRITURE prévue pour une phase ultérieure. N'est PAS la ressource de départ (idée antérieure abandonnée).
 
-**Bâtiment commercial (Tier 2)** — acheté avec des ressources (pas de l'or). Génère un revenu passif en or par journée. La course pour acheter un bâtiment commercial avant l'IA crée la tension principale du jeu. Exemple : marché aux fruits (coûte 200 pommes, rapporte 5g/jour).
+**Ressource** — bien produit par un bâtiment de production et échangeable sur le marché spot. Catégories : NOURRITURE (patates, pommes, pain, légumes), BIENS DE CONSO (meubles, tapis, objets raffinés), LOGEMENT (bois, pierre, verre). Chaque ressource a un marché dédié. Un marché s'ouvre quand un joueur construit le bâtiment de production correspondant.
 
-**Merveille (Tier 3)** — bâtiment spécial visible sur la carte dès le début de la partie. Coûte une quantité massive de ressources variées. Les merveilles sont les objectifs de victoire : première guilde à en construire le nombre requis gagne. Une merveille peut aussi conférer des effets stratégiques passifs.
+**Bâtiment de production (Tier 1)** — acheté avec de l'or. Produit automatiquement une ressource à chaque tick. Ouvre l'accès à son marché spot. Exemple : Champ de patates → produit des patates + ouvre le marché patate. 5 tiers de performance (débloqués en payant de l'or) : chaque tier double la production.
 
-**Marché spot** — lieu d'échange en temps réel où les ressources se vendent et s'achètent. Ce n'est pas une interface passive : c'est un champ de bataille. L'IA y achète aussi. Trois gestes fondamentaux : (1) vendre ses ressources pour de l'or, (2) acheter des ressources pour devancer l'IA sur un bâtiment, (3) vider le marché pour priver l'IA d'une ressource dont elle a besoin.
+**Atelier (Tier 2)** — acheté avec de l'or. Effectue UNE seule transformation (pas de chaîne complexe). Exemple : patates → conserves, bois → meubles. Ouvre un marché de produit transformé.
 
-**Rumeur** — signal imparfait et décalé sur l'activité d'une guilde adverse. Jamais en temps réel, toujours un coup de retard. Exemples : *"Tex semble accumuler du bois"*, *"Sam a dumpé le marché de la pomme"*. Le joueur doit décider sur une information incomplète — c'est le plaisir de l'anticipation. Les rumeurs apparaissent aussi comme bulles d'info sur la carte (intentions probables d'achat sur un bâtiment).
+**Immeuble (Tier 3)** — acheté avec ressources + or. Génère un loyer passif automatique. Prend de la valeur chaque jour. Exemples : Tour de Mage, Taverne, Port, Marché de potions.
 
-**Dump** — inonder volontairement le marché spot d'une ressource pour en faire chuter le prix. Arme offensive : si Tex a un bâtiment commercial qui génère des pommes, dumper les pommes réduit ses revenus. Coût réel pour le joueur si il possède aussi cette ressource — décision stratégique, pas un exploit.
+**Marché spot** — lieu d'échange en temps réel où les ressources se vendent et s'achètent. PAS une interface passive : c'est un champ de bataille. Tous les joueurs y agissent. 3 gestes fondamentaux : (1) vendre ses ressources pour de l'or, (2) acheter pour devancer les autres sur un bâtiment, (3) vider pour priver un rival d'une ressource.
 
-**Corner** — contrôle d'une part suffisante de la production d'une ressource pour en influencer le prix. Effet émergent, pas une action explicite. Se crée en possédant la majorité des bâtiments d'extraction d'une ressource.
+**Nœud de carte** — emplacement de construction sur la World Map. Groupés par zone thématique (zone forêt, zone prairie, etc.). Nombre de nœuds = nombre de joueurs. Chaque joueur peut avoir chaque type de bâtiment en 1 exemplaire. Affiche une icône chantier + prix direct.
 
-**Rachat hostile** — achat de parts d'un bâtiment adverse, par paliers de 5-10%. Posséder 20% de la mine de Tex = recevoir 20% de sa production de fer, Tex en reçoit 80%. À 51%, le bâtiment passe sous contrôle. Tex peut racheter ses parts pour se défendre. Arme progressive du Manipulateur.
+**Événement monde** — choc exogène sur l'offre ou la demande. Causé par le monde (caravanes, météo, fêtes, guerres), jamais par un joueur nommé (incompatible multijoueur). Types : festivals (annoncés plusieurs jours à l'avance), intempéries (annoncées 1 jour avant), fêtes annuelles de ressource (ex : Fête de la patate). Chaque événement crée une crise ET une opportunité pour quelqu'un.
 
-**Capital** — ressource principale du joueur, exprimée en or (g). Permet d'acheter des bâtiments Tier 1, de racheter des parts adverses, et de participer au spot market. Visible en permanence dans le HUD — c'est le battement de cœur du jeu.
+**Événement d'ouverture (Phase 0)** — courbe haussière scriptée sur le bois (biais fort les 3 premiers jours). Prix part bas et monte, enseignant le premier geste : attendre le bon moment pour vendre. Version future prévue : caravane narrative arrivant en ville, justification indépendante de tout joueur → compatible multijoueur.
 
-**Chronique** — récit automatique généré en fin de partie résumant les actions marquantes du joueur. *"La guilde du Joueur a asséché le marché du bois au jour 14, provoquant l'effondrement de l'auberge de Tex."* Transforme même un échec en histoire mémorable. Accompagnée d'un conseil personnalisé pour la prochaine partie.
+**Dump** — vendre massivement une ressource pour en faire chuter le prix. Arme offensive contre un rival qui en dépend. Coût réel pour le dumpeur aussi s'il possède cette ressource — décision stratégique, pas un exploit.
 
-**Compounding loop** — plaisir fondamental du jeu : voir sa base de pouvoir grossir de façon exponentielle grâce à ses décisions passées. Pas un jeu idle. L'accumulation est active : chaque ressource stockée est un pari sur l'avenir.
+**Corner** — contrôler une part suffisante de la production d'une ressource pour en influencer le prix durablement. Effet émergent issu de la possession de la majorité des bâtiments de production d'un type.
 
-**Archétype de gameplay** — phase émergente de jeu, pas un rôle choisi ni une classe RPG. Tout joueur peut être Investisseur (carte du monde, revenus passifs), Négociant (spot market, timing des prix) ou Manipulateur (dump, corner, rachat hostile) selon ce que le marché lui suggère ce jour-là. On peut switcher en cours de partie.
+**Rachat hostile** — achat de parts d'un bâtiment rival, par paliers de 5-10%. 20% = 20% de sa production reçue. 51% = prise de contrôle. Le rival peut racheter ses parts pour se défendre.
 
-**Événement** — choc sur l'offre ou la demande (sécheresse, attaque de géant, fête royale). Certains annoncés via rumeurs, d'autres surprises. Modifie les prix ou la production pendant N journées.
+**Rumeur** — signal imparfait et décalé sur l'activité d'un rival. Jamais en temps réel, toujours un coup de retard. Exemples : *"Brice semble accumuler du bois"*, *"Raph a dumpé le marché des patates"*. Le joueur décide sur information incomplète. Visible en bulle d'info sur la carte.
 
-**Scénario** — contexte loufoque et léger généré en début de partie. Justifie quelles ressources sont en forte demande et pose le décor narratif. Exemple : *"Tex vient d'arriver en ville avec 500 pièces d'or. Toi, tu as une pomme et 10 pièces d'or. Objectif : ériger la Tour de Magie avant lui."*
+**Capital** — or du joueur (g / gold / po / pièce d'or). HUD permanent, toujours visible. Permet d'acheter des bâtiments, racheter des parts, trader sur le spot.
 
-## Termes supprimés (v4 → v5)
+**Les 3 besoins du monde** — forces économiques qui pilotent les marchés automatiquement : Nourriture (pénurie → prix explosent, villes stagnent), Biens de consommation (abondance → luxe, marchés premium), Logement (demande dérivée de la croissance des villes). En cascade : nourriture abondante → villes grandissent → demande logement → demande meubles → économie de luxe → tensions nourriture.
 
-- **Tour** → remplacé par **Journée**
-- **Sandbox** → remplacé par **course aux merveilles** (~30-45 min, fin explicite)
-- **Marchands IA invisibles** → remplacé par **Rumeurs** (signal imparfait) + icônes sur carte
-- **Position** (stock pour revente inter-marchés) → concept fusionné dans Ressource + Marché spot
-- **Chaîne de production / Crafting** → supprimé. Les ressources ne se transforment pas.
+**Archétype de gameplay** — phase émergente, pas un rôle choisi ni une classe RPG. Investisseur (carte, revenus passifs), Négociant (spot market, timing), Manipulateur (dump, corner, rachat hostile). Switchables librement en cours de partie.
+
+**Chronique** — récit automatique généré en fin de partie résumant les actions marquantes. *"La guilde du Joueur a asséché le marché du bois au jour 14, provoquant l'effondrement de la taverne de Brice."* Même un échec devient une histoire mémorable. Accompagnée d'un conseil pour la prochaine partie.
+
+**Phase** — étape de progression du joueur définie par son niveau de bâtiments :
+- Phase 0 : 0 bâtiment — trading pur sur 1 marché (bois), objectif 10 bois → Bûcheron
+- Phase 1 : 1er bâtiment de production — production automatique
+- Phase 2 : 1er atelier — transformation + multi-marchés
+- Phase 3 : 1er immeuble — revenus passifs + valeur croissante
+
+## Termes supprimés ou en transition (v5 → v6)
+
+- **Journée / Fin de journée** → remplacé par **Tick** (temps continu) et **Phase** (progression)
+- **Boucle Stardew Valley** → supprimée. Le jeu est continu, pas en tranches journalières.
+- **Merveilles (win condition)** → *WIP* : encore présentes dans le code (tour_of_magic, grande_cathedrale). Vision long terme : remplacées par **Immeubles** (Tier 3) + objectif de générosité envers le continent.
+- **Pomme comme ressource de démarrage** → remplacé par **Bois** (Phase 0 actuelle)
+- **Patate comme ressource de démarrage** → idée abandonnée. Patate reste une ressource NOURRITURE future.
+- **ZÉRO crafting** → nuancé : UNE transformation par atelier (pas de chaînes)
+- **Tex** → remplacé par **Brice** et **Raph** (noms réels des rivaux)

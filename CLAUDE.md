@@ -7,58 +7,70 @@ Vérifie toujours l'équilibrage du gameplay et des nombres.
 **Name:** Trade Guild (nom provisoire)
 **What:** Jeu de gestion économique fantasy médiéval. Références : Capitalism Lab, Offworld Trading Company, Stardew Valley (rythme), Splendor (objectifs), Monopoly (tension propriétés).
 **Why:** For my personal entertainment and challenge
-**State:** Design v5 verrouillé (session 2026-05-25) — prototype strict minimum à coder
+**State:** Design v6 — Phase 0 jouable (session 2026-05-27/28). Moteur temps réel. Tests en cours.
 
-## Design decisions (v5 — 2026-05-25)
-- **Boucle Stardew Valley** : journée temps réel → bouton "Fin de journée" → révélation des gains → matin = nouvelle promesse. Journée molle = skip sans culpabilité.
-- **Ressources = monnaie** : ZÉRO crafting. Les ressources s'accumulent et servent à acheter des bâtiments Tier 2 (commerciaux) OU se vendent sur le spot market contre de l'or.
-- **Spot market = champ de bataille** : l'IA y achète aussi. 3 gestes fondamentaux : (1) vendre contre or, (2) acheter pour devancer l'IA sur un bâtiment, (3) vider pour priver l'IA.
-- **Dump** : inonder le marché d'une ressource = punir un adversaire qui en dépend. Coût réel pour le joueur aussi.
-- **Rachat hostile** : acheter par paliers de 5-10% un bâtiment adverse. 20% = 20% de sa production reçue. 51% = transfert. L'adversaire peut racheter ses parts.
-- **Rumeurs imparfaites** : signal décalé sur les intentions IA. *"Tex semble accumuler du bois."* Jamais en temps réel. Visible en bulle sur carte.
-- **Win condition : course aux merveilles** (~30-45min, fin explicite). Merveilles visibles dès le début, coûtent massivement des ressources, score composite (merveilles + bâtiments).
+## Design decisions (v6 — 2026-05-27)
+
+- **Temps réel** : tick toutes les 3s. Les prix bougent en continu. Pas de bouton "Fin de journée". Le jour avance seul (30 ticks = 90s en dev).
+- **Ressources = monnaie** : ZÉRO crafting complexe. Les ressources s'accumulent, se vendent sur le spot market contre de l'or, ou servent à acheter des bâtiments.
+- **Phase 0 — Bois** : démarrage 1 bois / 0 or. Objectif : accumuler 10 bois pour débloquer le premier bâtiment (Bûcheron/Scierie). Un seul marché visible, un seul rival (Brice).
+- **Spot market = champ de bataille** : l'IA y achète aussi. 3 gestes fondamentaux : (1) vendre contre or, (2) acheter pour devancer l'IA sur un bâtiment, (3) vider pour priver l'IA (Dump).
+- **Dump** : inonder le marché d'une ressource = punir un adversaire qui en dépend. Coût réel pour le dumpeur aussi.
+- **Pénurie probabiliste** : événement sur le bois, 40–90% de chance, magnitude inconnue, rumeur 10–20 ticks avant. Tension : croire ou pas le signal ?
+- **Rumeurs imparfaites** : signal décalé sur les intentions IA et les événements monde. Jamais en temps réel.
+- **Rachat hostile** : acheter par paliers de 5–10% un bâtiment adverse. 20% = 20% de sa production. 51% = prise de contrôle.
+- **Win condition (WIP)** : actuellement course aux merveilles dans le code. Vision long terme : Immeubles (Tier 3) + générosité envers le continent. En transition.
 - **Archetypes émergents** (PAS des rôles RPG) : Investisseur / Négociant / Manipulateur. Phases naturelles, switchables librement.
 - **Chronique de fin** : récit auto des actions marquantes + conseil personnalisé pour la prochaine partie.
-- **Scénario de début** : 1-2 phrases loufoques qui posent l'enjeu. Ex : *"Tex vient d'arriver en ville avec 500 pièces d'or. Toi, tu as une pomme et 10 pièces d'or. Objectif : ériger la Tour de Magie avant lui."*
-- **Nœuds de ressource** : dégradation douce (production ralentit progressivement). Jamais vide brutal. Nouveaux bâtiments apparaissent narrativement (économie florissante = nouveaux travailleurs).
-- **Chaque joueur a une couleur** visible sur la carte.
+- **Scénario de début** : *"Tu arrives en ville avec une planche de bois et zéro pièce d'or. Brice, lui, a déjà les yeux sur la scierie."*
+- **Nœuds de ressource** : dégradation douce (production ralentit progressivement). Jamais vide brutal.
+- **Chaque guilde a une couleur** visible sur la carte.
 
-## Features (prototype strict minimum v5)
-- 1 ressource (pommes), 1 bâtiment extraction (verger, acheté avec or), 1 bâtiment commercial (marché aux fruits, acheté avec 200 pommes)
-- Spot market avec courbe de prix Recharts
-- Tex qui achète aussi sur le spot + rumeurs basiques
-- Fin de journée consciente (bouton "Terminer cette journée")
-- 1 merveille visible (Tour de Magie), condition de victoire
-- HUD permanent : or (gros, toujours visible), ressources, jour en cours
+## Sensations cibles (à valider dans cet ordre)
+1. **"J'aurais dû attendre"** — regret de timing sur le prix
+2. **"Pourquoi Brice achète là ?"** — lecture sociale du marché
+3. **"La rumeur s'est réalisée et j'étais positionné"** — anticipation confirmée
+
+## Features actuelles (Phase 0 — jouable)
+- 1 ressource (bois), 0 or au départ, 1 bois initial
+- Spot market sidebar permanente gauche (300px), toujours visible
+- Courbe de prix live (tick par tick) + historique des trades
+- Brice comme seul rival actif — achète du bois, réagit aux rumeurs
+- Pénurie probabiliste avec rumeurs graduées
+- HUD : or (avec décimales), stock bois, jour/tick, progression merveilles, classement guildes
+- Barre de progression Phase 0 : 10 bois → bouton Bûcheron (cosmétique pour l'instant)
+- Chronique de fin de partie
 
 ## Tech
 - Frontend: React + Vite + TypeScript
 - Backend: aucun (prototype local)
 - Data: JSON statique
-- Deployment: local
-- Repo (private): à créer
-- `.gitignore` CLAUDE.md, references/, images/, .env → safe to push private repo
+- Repo: https://github.com/Neitak/trade-guild.git (privé)
+- `.gitignore` : CLAUDE.md, RUNBOOK.md, references/, images/, .env
 
-## Architecture cible v5
+## Architecture actuelle (v6)
 ```
 src/
-  data/          ← buildings.json, resources.json, wonders.json, scenarios.json
-  components/    ← SpotMarket, WorldMap, HUD, EndOfDay, Chronicle
-  engine/        ← day.ts, ai.ts, rumors.ts, shares.ts
-  App.tsx
+  data/         ← buildings.json, resources.json, wonders.json, scenarios.json
+  components/   ← SpotMarket (sidebar), WorldMap, HUD, Chronicle
+  engine/       ← types.ts, tick.ts, day.ts, market.ts, ai.ts,
+                   buildings.ts, shares.ts, rumors.ts, chronicle.ts, init.ts
+  sim/          ← simulate.ts (headless — erreurs TS connues, non critiques)
+  App.tsx       ← setInterval tick 3s, layout sidebar 300px + main flex
 ```
 
 **Useful commands:**
-- `npm run dev` — lance le prototype
+- `npm run dev` — lance le prototype sur localhost:5173
 
 ## Important Files
-- [CONTEXT.md](CONTEXT.md) — glossaire du domaine v5 (source de vérité terminologique)
+- [CONTEXT.md](CONTEXT.md) — glossaire du domaine v6 (source de vérité terminologique)
+- [RUNBOOK.md](RUNBOOK.md) — état courant, pièges, commandes (gitignored)
 
 ## Visuals
 - Fond ardoise `#1a1a2e`, accents or `#c9a84c`
-- Fonte médiévale pour les titres (ex: MedievalSharp, gratuite)
-- Courbe de prix : ligne or sur fond sombre — c'est l'élément signature, doit être beau dès le départ
-- Carte : nœuds et connexions, icônes dessinées, texte avec typo médiévale
+- Fontes : Cinzel Decorative (titres), Marcellus (UI), EB Garamond (corps), Fira Code (mono)
+- Courbe de prix : ligne verte sur fond sombre — élément signature, doit être beau
+- Carte : nœuds et connexions SVG, couleurs par guilde
 
 ## Traps & Known Risks
 - ⚠️ JAMAIS de crafting chains / bottlenecks → cassent la lisibilité et le fun
@@ -67,12 +79,17 @@ src/
 - ⚠️ Chemin optimal unique → design doit supporter 3 stratégies viables
 - ⚠️ Information redondante → chaque donnée a un seul foyer (sauf UX contextuelle justifiée)
 - ⚠️ Interface moche → le joueur (moi) abandonne le prototype. Minimum visuel non négociable.
-- ⚠️ Objectif formulé comme question ou lapalissade → toujours une vocation/obligation claire
 - ⚠️ Roles RPG → on design des phases de gameplay émergentes, pas de classes
+- ⚠️ `isAnimationActive={false}` sur tous les Recharts Line/Area sinon jerky au tick
+- ⚠️ `priceHistory` ne reçoit des points QU'AUX TRADES — courbe live = local state dans le composant
+- ⚠️ Les documents de référence (references/) sont des idées, pas des designs gravés dans le marbre — toujours interpréter au service du gameplay
 
 ## Later Ideas (garés)
+- Bois → Patate ou autre ressource nourriture en Phase 0 (à réévaluer après tests)
 - Bonus roguelite hebdomadaires (toutes les 7 journées, 3 propositions au choix)
 - Marché noir (évolution naturelle du Manipulateur)
 - Génération procédurale de la carte (sur structure fixe)
-- Trading IRL mechanics pour approfondir le spot market (scalping, moyen terme)
+- Trading IRL mechanics (scalping, moyen terme)
 - Objectifs asymétriques par guilde (chaque guilde vise une merveille différente)
+- Multijoueur : Brice + Raph en joueurs humains, serveur 24/7, 1 semaine temps réel
+- Win condition générosité : abondance partagée plutôt qu'or accumulé
