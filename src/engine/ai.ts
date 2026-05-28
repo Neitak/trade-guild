@@ -29,7 +29,9 @@ export function runRivalAI(state: GameState, guildId: GuildId): GameState {
 }
 
 /** Backward compat for direct callers */
-export const runTexAI = (state: GameState) => runRivalAI(state, 'tex')
+export const runBriceAI = (state: GameState) => runRivalAI(state, 'brice')
+/** @deprecated */
+export const runTexAI = runBriceAI
 
 // ─── Apple filière: Orchard → Fruit Market → Tour de Magie ───────────────────
 

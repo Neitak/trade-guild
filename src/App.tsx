@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import type { GameState, ResourceId, BuildingId, WonderId } from './engine/types'
 import { initGame } from './engine/init'
-import { resolveEndOfDay, contributeToWonder } from './engine/day'
+import { contributeToWonder } from './engine/day'
+import { resolveTick } from './engine/tick'
 import { sellToMarket, buyFromMarket } from './engine/market'
 import { buyBuilding } from './engine/buildings'
 import { buyShare } from './engine/shares'
@@ -10,39 +11,34 @@ import type { ChronicleResult } from './engine/chronicle'
 import { HUD } from './components/HUD'
 import { SpotMarket } from './components/SpotMarket'
 import { WorldMap } from './components/WorldMap'
-import { EndOfDay } from './components/EndOfDay'
 import { Chronicle } from './components/Chronicle'
-
-interface DayRevealData {
-  completedDay: number
-  nextDay: number
-  events: GameState['log']
-  goldBefore: number
-  goldAfter: number
-  rumors: string[]
-}
 
 export default function App() {
   const [state, setState] = useState<GameState>(() => initGame())
   const [chronicle, setChronicle] = useState<ChronicleResult | null>(null)
-  const [dayReveal, setDayReveal] = useState<DayRevealData | null>(null)
-  const [showMarket, setShowMarket] = useState(false)
 
-  const closeMarket = useCallback(() => setShowMarket(false), [])
-
+  // ─── Real-time tick engine (3s interval) ────────────────────────────────────
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') closeMarket()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [closeMarket])
+    if (state.phase !== 'playing') return
+    const id = setInterval(() => {
+      setState(prev => {
+        if (prev.phase !== 'playing') return prev
+        const next = resolveTick(prev)
+        if (next.phase !== 'playing') {
+          setChronicle(generateChronicle(next))
+        }
+        return next
+      })
+    }, 3000)
+    return () => clearInterval(id)
+  }, [state.phase])
 
+  // ─── Dev tools ──────────────────────────────────────────────────────────────
   useEffect(() => {
     (window as any).__GAME_STATE__ = state
   }, [state])
 
-  // Actions
+  // ─── Player actions ──────────────────────────────────────────────────────────
   function dispatch(updater: (s: GameState) => GameState) {
     setState(prev => {
       if (prev.phase !== 'playing') return prev
@@ -70,29 +66,8 @@ export default function App() {
     dispatch(s => buyShare(s, instanceId))
   }
 
-  function handleEndDay() {
-    setState(prev => {
-      if (prev.phase !== 'playing') return prev
-      const goldBefore   = prev.player.gold
-      const completedDay = prev.day
-      const next         = resolveEndOfDay(prev)
-      const dayEvents    = next.log.filter(e => e.day === completedDay && e.actor !== 'system')
-      const dayRumors    = next.activeRumors.filter(r => r.day === completedDay).map(r => r.text)
-      setDayReveal({ completedDay, nextDay: next.day, events: dayEvents, goldBefore, goldAfter: next.player.gold, rumors: dayRumors })
-      if (next.phase !== 'playing') {
-        setChronicle(generateChronicle(next))
-      }
-      return next
-    })
-  }
-
-  function handleDismissReveal() {
-    setDayReveal(null)
-  }
-
   function handleNewGame() {
     setChronicle(null)
-    setDayReveal(null)
     setState(initGame())
   }
 
@@ -101,149 +76,50 @@ export default function App() {
   return (
     <div style={{
       display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
+      height: '100vh',
       overflow: 'hidden',
+      background: 'var(--bg)',
     }}>
-      {/* Scenario intro (day 0 only) */}
-      {state.day === 0 && (
-        <div style={{
-          background: 'rgba(201,168,76,0.08)',
-          borderBottom: '1px solid var(--border)',
-          padding: '6px 20px',
-          fontSize: '0.8rem',
-          color: 'var(--text-dim)',
-          fontStyle: 'italic',
-          flexShrink: 0,
-        }}>
-          {state.scenario}
-        </div>
-      )}
-
-      {/* HUD */}
-      <HUD state={state} />
-
-      {/* Main layout — WorldMap plein écran */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
-        <WorldMap
+      {/* ── LEFT SIDEBAR — Spot Market (permanent, always visible) ── */}
+      <aside style={{
+        width: 300,
+        flexShrink: 0,
+        overflowY: 'auto',
+        borderRight: '1px solid var(--border)',
+        background: 'var(--bg-panel)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        <SpotMarket
           state={state}
-          onBuyBuilding={handleBuyBuilding}
-          onBuyShare={handleBuyShare}
+          onSell={handleSell}
+          onBuy={handleBuy}
+          onContribute={handleContribute}
         />
+      </aside>
 
-        {/* Floating market button — bottom left */}
-        <button
-          onClick={() => setShowMarket(true)}
-          style={{
-            position: 'absolute',
-            bottom: 20,
-            left: 20,
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 18px',
-            background: 'rgba(10,10,26,0.92)',
-            border: '1px solid var(--accent)',
-            borderRadius: 'var(--radius)',
-            color: 'var(--accent)',
-            fontFamily: 'var(--font-ui)',
-            fontSize: '0.85rem',
-            letterSpacing: '0.06em',
-            cursor: 'pointer',
-            backdropFilter: 'blur(4px)',
-            boxShadow: '0 2px 12px rgba(201,168,76,0.18)',
-          }}
-        >
-          ⚖ Marché
-        </button>
+      {/* ── RIGHT COLUMN — HUD + Map ── */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minWidth: 0,
+        overflow: 'hidden',
+      }}>
+        {/* HUD top bar */}
+        <HUD state={state} />
 
-        {/* End of day button — bottom right */}
-        <button
-          className="btn-primary"
-          style={{
-            position: 'absolute',
-            bottom: 20,
-            right: 20,
-            zIndex: 10,
-            padding: '10px 24px',
-            fontSize: '0.9rem',
-            letterSpacing: '0.08em',
-          }}
-          onClick={handleEndDay}
-        >
-          Terminer cette journée →
-        </button>
+        {/* World map fills remaining space */}
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          <WorldMap
+            state={state}
+            onBuyBuilding={handleBuyBuilding}
+            onBuyShare={handleBuyShare}
+          />
+        </div>
       </div>
 
-      {/* SpotMarket modal overlay */}
-      {showMarket && (
-        <div
-          onClick={closeMarket}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            background: 'rgba(0,0,0,0.72)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backdropFilter: 'blur(2px)',
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: 'min(900px, 96vw)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              padding: 20,
-              position: 'relative',
-            }}
-          >
-            <button
-              onClick={closeMarket}
-              style={{
-                position: 'absolute',
-                top: 12,
-                right: 12,
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                fontSize: '1.2rem',
-                cursor: 'pointer',
-                lineHeight: 1,
-                padding: '2px 6px',
-              }}
-              aria-label="Fermer"
-            >✕</button>
-            <SpotMarket
-              state={state}
-              onSell={handleSell}
-              onBuy={handleBuy}
-              onContribute={handleContribute}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Day reveal overlay */}
-      {dayReveal && !chronicle && (
-        <EndOfDay
-          completedDay={dayReveal.completedDay}
-          nextDay={dayReveal.nextDay}
-          events={dayReveal.events}
-          goldBefore={dayReveal.goldBefore}
-          goldAfter={dayReveal.goldAfter}
-          rumors={dayReveal.rumors}
-          onDismiss={handleDismissReveal}
-        />
-      )}
-
-      {/* Chronicle overlay */}
+      {/* Chronicle overlay (end-game screen) */}
       {chronicle && (
         <Chronicle
           chronicle={chronicle}

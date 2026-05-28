@@ -21,12 +21,12 @@ export interface BuildingDef {
 
 // ─── Guild IDs ────────────────────────────────────────────────────────────────
 
-export type GuildId = 'player' | 'tex' | 'sam' | 'rita'
+export type GuildId = 'player' | 'brice' | 'raph' | 'rita'
 
 export const GUILD_COLORS: Record<GuildId, string> = {
   player: 'var(--player-color)',
-  tex:    '#c94c4c',
-  sam:    '#9b59b6',
+  brice:  '#c94c4c',
+  raph:   '#9b59b6',
   rita:   '#e67e22',
 }
 
@@ -145,6 +145,27 @@ export interface MapState {
   nodes: MapNode[]
 }
 
+// ─── Market Events (pénuries, etc.) ──────────────────────────────────────────
+
+export interface PendingMarketEvent {
+  id: string
+  resourceId: ResourceId
+  type: 'shortage'
+  probability: number       // 0.4–0.9 — chance it actually fires
+  magnitude: number         // 0.2–0.8 — price spike %
+  duration: number          // ticks the spike lasts
+  firesOnTick: number       // absolute tick when event resolves
+  rumorRevealedOnTick: number // absolute tick when rumor appears
+  fired: boolean
+}
+
+export interface ActiveMarketEvent {
+  id: string
+  resourceId: ResourceId
+  magnitudePerTick: number  // per-tick price boost applied to currentPrice
+  remainingTicks: number
+}
+
 // ─── Game Phase ──────────────────────────────────────────────────────────────
 
 export type GamePhase = 'playing' | 'won' | 'lost'
@@ -153,10 +174,12 @@ export type GamePhase = 'playing' | 'won' | 'lost'
 
 export interface GameState {
   day: number
+  tick: number              // absolute tick since game start
+  tickOfDay: number         // 0..TICKS_PER_DAY-1, resets each day
   phase: GamePhase
-  scenario: string // opening sentence
+  scenario: string          // opening sentence
   player: GuildState
-  rivals: GuildState[]  // [tex, sam, rita]
+  rivals: GuildState[]      // Phase 0: [brice] — Raph joins Phase 1
   market: MarketState
   map: MapState
   log: GameEvent[]
@@ -165,12 +188,19 @@ export interface GameState {
   wonders: WonderProgress[]
   rivalStrategies: Partial<Record<GuildId, { preferredResource: ResourceId }>>
   shareRegistry: ShareOwnership[]
+  pendingMarketEvents: PendingMarketEvent[]
+  activeMarketEvents: ActiveMarketEvent[]
 }
 
 // ─── Guild helpers ────────────────────────────────────────────────────────────
 
+export function getBrice(state: GameState): GuildState {
+  return state.rivals.find(r => r.id === 'brice')!
+}
+
+/** @deprecated Use getBrice */
 export function getTex(state: GameState): GuildState {
-  return state.rivals.find(r => r.id === 'tex')!
+  return getBrice(state)
 }
 
 export function getRival(state: GameState, id: GuildId): GuildState {

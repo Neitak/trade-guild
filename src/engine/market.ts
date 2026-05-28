@@ -50,8 +50,11 @@ export function recoverPrices(state: GameState): MarketState {
     // Recover toward new equilibrium (15%/day)
     const recovered = r.currentPrice + (newEquilibrium - r.currentPrice) * 0.15
 
-    // Random walk noise — slight upward bias (+2% net drift)
-    const noise    = (Math.random() - 0.48) * r.volatility
+    // Random walk noise
+    // Phase 0 (day ≤ 3): strong upward bias — tutorial feel, player wins early
+    // Phase 1+: subtle +2% drift (standard)
+    const biasFactor = state.day <= 3 ? 0.28 : 0.48
+    const noise    = (Math.random() - biasFactor) * r.volatility
     const withNoise = recovered * (1 + noise)
 
     // Clamp: 30% to 250% of baseEquilibriumPrice
@@ -250,11 +253,15 @@ export function rivalBuyFromMarket(
   }
 }
 
-// Backward compat aliases (used by shares.ts)
+// Backward compat aliases
 /** @deprecated Use rivalSellToMarket */
-export const texSellToMarket = (s: GameState, r: ResourceId, q: number) => rivalSellToMarket(s, 'tex', r, q)
+export const briceSellToMarket = (s: GameState, r: ResourceId, q: number) => rivalSellToMarket(s, 'brice', r, q)
 /** @deprecated Use rivalBuyFromMarket */
-export const texBuyFromMarket = (s: GameState, r: ResourceId, q: number) => rivalBuyFromMarket(s, 'tex', r, q)
+export const briceBuyFromMarket = (s: GameState, r: ResourceId, q: number) => rivalBuyFromMarket(s, 'brice', r, q)
+/** @deprecated */
+export const texSellToMarket = briceSellToMarket
+/** @deprecated */
+export const texBuyFromMarket = briceBuyFromMarket
 
 // ─── Preview helpers (for UI tooltips) ───────────────────────────────────────
 

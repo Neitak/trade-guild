@@ -2,14 +2,18 @@ import type { GameState, MapNode, ResourceId, GuildState } from './types'
 import { GUILD_COLORS } from './types'
 import resourceDefs from '../data/resources.json'
 import wonderDefs from '../data/wonders.json'
-import scenarioDefs from '../data/scenarios.json'
 
-// ─── Map layout — 2 filières (apples left, wood right) + 2 wonders (center) ──
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+export const TICKS_PER_DAY = 30  // 30 × 3s = 90s per day (dev speed)
+
+// ─── Map layout — bois filière (right) + 2 wonders (center) ──────────────────
+// Apple nodes kept in map for Phase 1+ but grayed — won't be interactable in Phase 0
 const MAP_NODES: MapNode[] = [
-  // Apple filière (left) — slot_1 available, slot_2 locked (unlocks narratively)
-  { id: 'orchard_slot_1',    label: 'Verger du Vallon',       x: 100, y: 90,  type: 'resource',   buildingDefId: 'orchard' },
+  // Apple filière (left) — locked until Phase 1 (building unlocks market)
+  { id: 'orchard_slot_1',    label: 'Verger du Vallon',       x: 100, y: 90,  type: 'resource',   buildingDefId: 'orchard',     locked: true },
   { id: 'orchard_slot_2',    label: 'Verger des Collines',    x: 215, y: 50,  type: 'resource',   buildingDefId: 'orchard',     locked: true },
-  { id: 'market_slot_1',     label: 'Place du Marché',        x: 145, y: 215, type: 'commercial', buildingDefId: 'fruit_market' },
+  { id: 'market_slot_1',     label: 'Place du Marché',        x: 145, y: 215, type: 'commercial', buildingDefId: 'fruit_market', locked: true },
   { id: 'market_slot_2',     label: 'Carrefour Nord',         x:  55, y: 275, type: 'commercial', buildingDefId: 'fruit_market', locked: true },
   // Wonders (center)
   { id: 'wonder_slot',       label: 'Tour de Magie',          x: 365, y:  90, type: 'wonder' },
@@ -21,21 +25,16 @@ const MAP_NODES: MapNode[] = [
   { id: 'menuiserie_slot_2', label: 'Grande Menuiserie',      x: 660, y: 280, type: 'commercial', buildingDefId: 'menuiserie',  locked: true },
 ]
 
-export function initGame(scenarioId?: string): GameState {
-  const defs = scenarioDefs as any[]
-  const scenario = scenarioId
-    ? (defs.find(s => s.id === scenarioId) ?? defs[0])
-    : defs[Math.floor(Math.random() * defs.length)]
-
+export function initGame(): GameState {
   const resDefs = resourceDefs as any[]
-  const appleDef = resDefs.find(r => r.id === 'apple')!
   const woodDef  = resDefs.find(r => r.id === 'wood')!
+  const appleDef = resDefs.find(r => r.id === 'apple')!
 
   const wDefs = wonderDefs as any[]
-  const towerDef     = wDefs.find(w => w.id === 'tower_of_magic')!
+  const towerDef      = wDefs.find(w => w.id === 'tower_of_magic')!
   const cathedraleDef = wDefs.find(w => w.id === 'grande_cathedrale')!
 
-  function makeRival(id: 'tex' | 'sam' | 'rita', name: string, gold: number): GuildState {
+  function makeRival(id: 'brice' | 'raph' | 'rita', name: string, gold: number): GuildState {
     return {
       id,
       name,
@@ -47,31 +46,39 @@ export function initGame(scenarioId?: string): GameState {
     }
   }
 
-  const texResource:  ResourceId = Math.random() < 0.5 ? 'apple' : 'wood'
-  const samResource:  ResourceId = Math.random() < 0.5 ? 'apple' : 'wood'
-  const ritaResource: ResourceId = Math.random() < 0.5 ? 'apple' : 'wood'
+  const briceResource: ResourceId = 'wood'  // Phase 0: Brice focuses on wood
 
   return {
+    // ─── Time ───────────────────────────────────────────────────────────────
     day: 0,
+    tick: 0,
+    tickOfDay: 0,
+
     phase: 'playing',
-    scenario: scenario.openingSentence,
+
+    // ─── Opening ────────────────────────────────────────────────────────────
+    scenario: 'Tu arrives en ville avec une planche de bois et zéro pièce d\'or. Brice, lui, a déjà les yeux sur la scierie. Objectif : construire un empire avant lui.',
+
+    // ─── Player — Phase 0 start : 1 bois, 0 or ──────────────────────────────
     player: {
       id: 'player',
       name: 'Vous',
       color: GUILD_COLORS['player'],
-      gold: scenario.player.gold,
+      gold: 0,
       inventory: {
-        apple: scenario.player.inventory.apple ?? 0,
-        wood:  scenario.player.inventory.wood  ?? 0,
+        apple: 0,
+        wood:  1,
       },
       buildings: [],
       netWorthHistory: [],
     },
+
+    // ─── Rivals — Phase 0 : Brice only ──────────────────────────────────────
     rivals: [
-      makeRival('tex',  'Tex le Malin',   scenario.tex.gold),
-      makeRival('sam',  'Sam la Ruse',    scenario.tex.gold),
-      makeRival('rita', 'Rita la Pieuvre', scenario.tex.gold),
+      makeRival('brice', 'Brice', 80),
     ],
+
+    // ─── Market ─────────────────────────────────────────────────────────────
     market: {
       resources: {
         apple: {
@@ -86,27 +93,34 @@ export function initGame(scenarioId?: string): GameState {
         },
         wood: {
           resourceId: 'wood',
-          currentPrice:         woodDef.basePrice,
+          // Phase 0 : start at 1.0g (round, readable, bullish from here)
+          currentPrice:         1.0,
           equilibriumPrice:     woodDef.equilibriumPrice,
           baseEquilibriumPrice: woodDef.equilibriumPrice,
-          volatility:           woodDef.volatility ?? 0.08,
+          volatility:           0.04,  // low volatility in Phase 0 (tutorial feel)
           elasticityK:          woodDef.elasticityK,
           volumeAvailable:      woodDef.startingVolume,
-          priceHistory: [{ day: 0, price: woodDef.basePrice }],
+          priceHistory: [{ day: 0, price: 1.0 }],
         },
       },
     },
+
+    // ─── Map ────────────────────────────────────────────────────────────────
     map: { nodes: MAP_NODES.map(n => ({ ...n })) },
+
+    // ─── Log & Rumors ───────────────────────────────────────────────────────
     log: [],
     pendingRumors: [],
     activeRumors: [],
+
+    // ─── Wonders ────────────────────────────────────────────────────────────
     wonders: [
       {
         id: 'tower_of_magic',
         name: towerDef.name,
         requiredResources: towerDef.requiredResources,
         playerContributed: {},
-        rivalContributed: { tex: {}, sam: {}, rita: {} },
+        rivalContributed: { brice: {} },
         complete: false,
       },
       {
@@ -114,15 +128,21 @@ export function initGame(scenarioId?: string): GameState {
         name: cathedraleDef.name,
         requiredResources: cathedraleDef.requiredResources,
         playerContributed: {},
-        rivalContributed: { tex: {}, sam: {}, rita: {} },
+        rivalContributed: { brice: {} },
         complete: false,
       },
     ],
+
+    // ─── Strategies ─────────────────────────────────────────────────────────
     rivalStrategies: {
-      tex:  { preferredResource: texResource },
-      sam:  { preferredResource: samResource },
-      rita: { preferredResource: ritaResource },
+      brice: { preferredResource: briceResource },
     },
+
+    // ─── Shares ─────────────────────────────────────────────────────────────
     shareRegistry: [],
+
+    // ─── Market Events ──────────────────────────────────────────────────────
+    pendingMarketEvents: [],
+    activeMarketEvents: [],
   }
 }

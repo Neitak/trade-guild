@@ -5,10 +5,8 @@ interface Props {
 }
 
 export function HUD({ state }: Props) {
-  const { player, rivals, day, wonders, market } = state
-  const applePrice = market.resources.apple.currentPrice
+  const { player, rivals, day, tickOfDay, wonders, market } = state
   const woodPrice  = market.resources.wood.currentPrice
-  const playerApples = player.inventory.apple ?? 0
   const playerWood   = player.inventory.wood  ?? 0
 
   const tower     = wonders.find(w => w.id === 'tower_of_magic')!
@@ -39,9 +37,12 @@ export function HUD({ state }: Props) {
       borderBottom: '1px solid var(--border)',
       flexShrink: 0,
     }}>
-      {/* Day */}
+      {/* Day + tick progress */}
       <div style={{ fontFamily: 'var(--font-title)', fontSize: '0.75rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
         JOUR <span style={{ color: 'var(--accent)', fontSize: '1.1rem' }}>{day}</span>
+        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginLeft: 5, fontFamily: 'var(--font-mono)' }}>
+          {tickOfDay ?? 0}/30
+        </span>
       </div>
 
       <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
@@ -54,17 +55,10 @@ export function HUD({ state }: Props) {
         <span style={{ color: 'var(--accent-dim)', fontSize: '0.85rem' }}>or</span>
       </div>
 
-      {/* Apple inventory */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span style={{ fontSize: '1.05rem', fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{playerApples}</span>
-        <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>🍎</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>({applePrice.toFixed(2)})</span>
-      </div>
-
       {/* Wood inventory */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span style={{ fontSize: '1.05rem', fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{playerWood}</span>
-        <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>🪵</span>
+        <span style={{ fontSize: '1.3rem', fontFamily: 'var(--font-mono)', color: '#5a9e6a', fontWeight: 500 }}>{playerWood}</span>
+        <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>🪵</span>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>({woodPrice.toFixed(2)})</span>
       </div>
 

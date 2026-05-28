@@ -49,7 +49,7 @@ export function resolveEndOfDay(state: GameState): GameState {
     type: 'END_DAY',
     payload: {
       playerGold: s.player.gold,
-      texGold: s.rivals.find(r => r.id === 'tex')?.gold ?? 0,
+      briceGold: s.rivals.find(r => r.id === 'brice')?.gold ?? 0,
       applePrice: s.market.resources['apple'].currentPrice,
       woodPrice: s.market.resources['wood'].currentPrice,
     },
