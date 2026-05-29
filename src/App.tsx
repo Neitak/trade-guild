@@ -95,6 +95,7 @@ export default function App() {
           onSell={handleSell}
           onBuy={handleBuy}
           onContribute={handleContribute}
+          onBuyBuilding={handleBuyBuilding}
         />
       </aside>
 
