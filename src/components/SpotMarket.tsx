@@ -198,10 +198,11 @@ function ResourceCard({ resourceId, resourceMarket, state, onSell, onBuy, onCont
   const [qtySell, setQtySell] = useState(1)
   const [qtyBuy,  setQtyBuy]  = useState(1)
 
-  const safeSellQty = sellQtys.includes(qtySell) ? qtySell : (sellQtys[0] ?? 1)
   const maxBuyQty   = Math.floor(player.gold / Math.max(resourceMarket.currentPrice, 0.01))
   const buyQtys     = getAdaptiveQtys(Math.min(maxBuyQty, resourceMarket.volumeAvailable))
-  const safeBuyQty  = buyQtys.includes(qtyBuy) ? qtyBuy : (buyQtys[0] ?? 1)
+  // Clamp to available without resetting selection — preserves user choice across ticks
+  const safeSellQty = Math.max(1, Math.min(qtySell, playerQty))
+  const safeBuyQty  = Math.max(1, Math.min(qtyBuy, Math.min(maxBuyQty, resourceMarket.volumeAvailable)))
 
   const sellPreview = previewSell(state, resourceId, safeSellQty)
   const buyPreview  = previewBuy(state, resourceId, safeBuyQty)
