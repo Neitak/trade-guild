@@ -681,30 +681,57 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
         <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>J{state.day}</span>
       </div>
 
-      {/* ── Resource tabs (only when multiple resources active) ── */}
+      {/* ── Resource tabs — mini ticker cards ── */}
       {activeResources.length > 1 && (
-        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
           {activeResources.map(rid => {
-            const m = RESOURCE_META[rid]
+            const m        = RESOURCE_META[rid]
             const selected = rid === effectiveSelected
+            const mkt      = state.market.resources[rid]
+            const qty      = state.player.inventory[rid] ?? 0
+            const prev     = mkt.priceHistory.at(-2)?.price ?? mkt.currentPrice
+            const delta    = mkt.currentPrice - prev
+            const dir      = delta > 0.01 ? '↑' : delta < -0.01 ? '↓' : '·'
+            const dirColor = delta > 0.01 ? 'var(--success)' : delta < -0.01 ? 'var(--danger)' : 'var(--text-muted)'
+
             return (
               <button key={rid}
                 onClick={() => setSelectedResource(rid)}
                 style={{
                   flex: 1,
-                  padding: '5px 4px',
-                  fontSize: '0.75rem',
-                  fontFamily: 'var(--font-ui)',
-                  background: selected ? `${m.chartHex}18` : 'transparent',
-                  border: 'none',
-                  borderBottom: `2px solid ${selected ? m.chartHex : 'transparent'}`,
-                  color: selected ? m.chartColor : 'var(--text-muted)',
+                  padding: '7px 6px 6px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                  background: selected ? `${m.chartHex}16` : 'rgba(255,255,255,0.015)',
+                  border: `1px solid ${selected ? m.chartHex + '80' : 'rgba(255,255,255,0.06)'}`,
+                  borderRadius: 8,
                   cursor: 'pointer',
                   transition: 'all 0.15s',
-                  borderRadius: '4px 4px 0 0',
+                  boxShadow: selected ? `0 0 14px ${m.chartHex}20` : 'none',
+                  position: 'relative',
                 }}
               >
-                {m.icon} {m.label}
+                {/* selected indicator bar */}
+                {selected && (
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: '20%', right: '20%', height: 2,
+                    background: m.chartHex, borderRadius: '2px 2px 0 0',
+                  }} />
+                )}
+                <span style={{ fontSize: '1rem', lineHeight: 1 }}>{m.icon}</span>
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: '0.72rem',
+                  color: selected ? m.chartColor : 'var(--text-dim)', fontWeight: 500, lineHeight: 1,
+                }}>
+                  {mkt.currentPrice.toFixed(2)}
+                  <span style={{ color: dirColor, fontSize: '0.65rem', marginLeft: 2 }}>{dir}</span>
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: '0.58rem',
+                  color: qty > 0 ? m.chartColor : 'var(--text-muted)', lineHeight: 1,
+                  opacity: qty > 0 ? 0.9 : 0.5,
+                }}>
+                  {qty > 0 ? `${qty}` : '—'}
+                </span>
               </button>
             )
           })}
@@ -721,20 +748,29 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
         onContribute={qty => wonderId ? onContribute(qty, wonderId) : undefined}
       />
 
-      {/* ── Active rumors ── */}
+      {/* ── Active rumors — citations d'auberge ── */}
       {state.activeRumors.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+          <div style={{
+            fontSize: '0.55rem', color: 'var(--accent-dim)',
+            fontFamily: 'var(--font-ui)', letterSpacing: '0.1em',
+            textTransform: 'uppercase', marginBottom: 1,
+          }}>
+            Rumeurs
+          </div>
           {state.activeRumors.slice(-3).map((r, i) => (
             <div key={i} style={{
-              fontSize: '0.76rem',
-              color: 'var(--text)',
+              fontSize: '0.78rem',
+              color: 'rgba(232,220,200,0.85)',
               fontStyle: 'italic',
-              background: 'rgba(201,168,76,0.05)',
+              background: 'rgba(201,168,76,0.045)',
+              border: '1px solid rgba(201,168,76,0.12)',
               borderLeft: '2px solid var(--accent-dim)',
-              borderRadius: '0 4px 4px 0',
-              padding: '5px 9px',
+              borderRadius: '0 5px 5px 0',
+              padding: '6px 10px 6px 9px',
               fontFamily: 'var(--font-body)',
-              lineHeight: 1.4,
+              lineHeight: 1.45,
+              animation: 'fadeIn 0.3s ease',
             }}>
               {r.text}
             </div>

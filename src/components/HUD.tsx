@@ -1,187 +1,185 @@
-import type { GameState } from '../engine/types'
+import type { GameState, GuildId } from '../engine/types'
+import buildingDefs from '../data/buildings.json'
 
 interface Props {
   state: GameState
 }
 
 function formatGold(g: number): string {
-  if (g >= 100) return Math.round(g).toString()
-  if (g >= 10)  return g.toFixed(1)
+  if (g >= 1000) return `${(g / 1000).toFixed(1)}k`
+  if (g >= 100)  return Math.round(g).toString()
+  if (g >= 10)   return g.toFixed(1)
   return g.toFixed(2)
 }
 
 export function HUD({ state }: Props) {
-  const { player, rivals, day, tickOfDay, wonders, market } = state
-  const woodPrice  = market.resources.wood.currentPrice
-  const playerWood   = player.inventory.wood  ?? 0
+  const { player, rivals, day, tickOfDay, market, rivalStrategies } = state
 
-  const tower     = wonders.find(w => w.id === 'tower_of_magic')!
-  const cathedrale = wonders.find(w => w.id === 'grande_cathedrale')!
+  // ─── Passive income from all buildings (Menuiserie, Auberge…) ───────────────
+  const passiveIncome = Math.round(
+    player.buildings.reduce((sum, b) => {
+      const def = (buildingDefs as any[]).find(d => d.id === b.defId)
+      if (!def?.revenuePerDay) return sum
+      const level = b.level ?? 1
+      const rev   = def.upgradeRevenues
+        ? (def.upgradeRevenues[String(level)] ?? def.revenuePerDay)
+        : def.revenuePerDay
+      return sum + rev * (b.shares / 100)
+    }, 0)
+  )
 
-  const towerReq     = tower.requiredResources.apple ?? 800
-  const cathedReq    = cathedrale.requiredResources.wood ?? 400
-
-  const playerTowerPct  = Math.round(((tower.playerContributed.apple    ?? 0) / towerReq)  * 100)
-  const playerCathedPct = Math.round(((cathedrale.playerContributed.wood ?? 0) / cathedReq) * 100)
-  // Best rival progress for wonder bars
-  const bestTowerPct    = Math.round((Math.max(...rivals.map(r => tower.rivalContributed[r.id]?.apple ?? 0)) / towerReq) * 100)
-  const bestCathedPct   = Math.round((Math.max(...rivals.map(r => cathedrale.rivalContributed[r.id]?.wood ?? 0)) / cathedReq) * 100)
-
-  // Classement par valeur nette décroissante
+  // ─── Net worth (gold + inventory at market price, per history snapshot) ────
+  const playerNW = player.netWorthHistory.at(-1)?.value ?? player.gold
   const allGuilds = [
-    { id: player.id, name: 'Vous', color: player.color, worth: player.netWorthHistory.at(-1)?.value ?? player.gold, gold: player.gold },
-    ...rivals.map(r => ({ id: r.id, name: r.name, color: r.color, worth: r.netWorthHistory.at(-1)?.value ?? r.gold, gold: r.gold })),
-  ].sort((a, b) => b.worth - a.worth)
+    { id: 'player' as const, name: 'Toi', color: player.color, nw: playerNW, gold: player.gold },
+    ...rivals.map(r => ({
+      id: r.id as GuildId,
+      name: r.name,
+      color: r.color,
+      nw:   r.netWorthHistory.at(-1)?.value ?? r.gold,
+      gold: r.gold,
+    })),
+  ].sort((a, b) => b.nw - a.nw)
+
+  const topNW = Math.max(...allGuilds.map(g => g.nw), 1)
+
+  // ─── Non-zero inventory to display ──────────────────────────────────────────
+  const inventorySlots = [
+    { id: 'wood',   icon: '🪵', qty: player.inventory.wood   ?? 0, price: market.resources.wood.currentPrice,   color: '#5a9e6a' },
+    { id: 'pierre', icon: '🗿', qty: player.inventory.pierre ?? 0, price: market.resources.pierre.currentPrice, color: '#a09070' },
+    { id: 'meuble', icon: '🪑', qty: player.inventory.meuble ?? 0, price: market.resources.meuble.currentPrice, color: '#b07ec8' },
+    { id: 'apple',  icon: '🍎', qty: player.inventory.apple  ?? 0, price: market.resources.apple.currentPrice,  color: '#c9a84c' },
+  ].filter(e => e.qty > 0)
+
+  const tickPct = ((tickOfDay ?? 0) / 30) * 100
 
   return (
     <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 20,
-      padding: '8px 20px',
-      background: 'var(--bg-panel)',
-      borderBottom: '1px solid var(--border)',
-      flexShrink: 0,
+      display:        'flex',
+      alignItems:     'center',
+      gap:            14,
+      padding:        '6px 18px',
+      background:     'var(--bg-panel)',
+      borderBottom:   '1px solid var(--border)',
+      flexShrink:     0,
+      minHeight:      52,
     }}>
-      {/* Day + tick progress */}
-      <div style={{ fontFamily: 'var(--font-title)', fontSize: '0.75rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
-        JOUR <span style={{ color: 'var(--accent)', fontSize: '1.1rem' }}>{day}</span>
-        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginLeft: 5, fontFamily: 'var(--font-mono)' }}>
-          {tickOfDay ?? 0}/30
+
+      {/* ── Day + tick progress ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 44 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          Jour
         </span>
-      </div>
-
-      <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
-
-      {/* Gold */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: '1.8rem', fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--accent)', lineHeight: 1 }}>
-          {formatGold(player.gold)}
+        <span style={{ fontFamily: 'var(--font-title)', fontSize: '1.1rem', color: 'var(--accent)', lineHeight: 1.1 }}>
+          {day}
         </span>
-        <span style={{ color: 'var(--accent-dim)', fontSize: '0.85rem' }}>or</span>
+        <div style={{ height: 2, width: 36, background: 'rgba(255,255,255,0.06)', borderRadius: 1, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', width: `${tickPct}%`,
+            background: 'var(--accent)', borderRadius: 1,
+            transition: 'width 0.2s linear',
+          }} />
+        </div>
       </div>
 
-      {/* Wood inventory */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span style={{ fontSize: '1.3rem', fontFamily: 'var(--font-mono)', color: '#5a9e6a', fontWeight: 500 }}>{playerWood}</span>
-        <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>🪵</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>({woodPrice.toFixed(2)})</span>
+      <div style={{ width: 1, height: 36, background: 'var(--border)' }} />
+
+      {/* ── Gold + passive income ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{ fontSize: '1.65rem', fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--accent)', lineHeight: 1 }}>
+            {formatGold(player.gold)}
+          </span>
+          <span style={{ color: 'var(--accent-dim)', fontSize: '0.75rem' }}>or</span>
+        </div>
+        {passiveIncome > 0 ? (
+          <div style={{ fontSize: '0.62rem', color: 'var(--success)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
+            +{passiveIncome}/j
+          </div>
+        ) : (
+          <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            {tickOfDay ?? 0}/30
+          </div>
+        )}
       </div>
+
+      {/* ── Inventory chips (non-zero only) ── */}
+      {inventorySlots.length > 0 && (
+        <>
+          <div style={{ width: 1, height: 36, background: 'var(--border)' }} />
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {inventorySlots.map(e => (
+              <div key={e.id} style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                padding: '3px 7px',
+                background: 'rgba(255,255,255,0.025)',
+                borderRadius: 6,
+                border: '1px solid rgba(255,255,255,0.05)',
+              }}>
+                <span style={{ fontSize: '0.85rem', lineHeight: 1.3 }}>{e.icon}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: e.color, fontWeight: 500, lineHeight: 1 }}>
+                  {e.qty}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.54rem', color: 'var(--text-muted)', lineHeight: 1 }}>
+                  {e.price.toFixed(1)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <div style={{ flex: 1 }} />
 
-      {/* Wonder race — Tour de Magie */}
-      <WonderBar
-        label="TOUR DE MAGIE"
-        playerPct={playerTowerPct}
-        rivalPct={bestTowerPct}
-        playerContrib={tower.playerContributed.apple ?? 0}
-        required={towerReq}
-        unit="🍎"
-      />
-
-      <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
-
-      {/* Wonder race — Grande Cathédrale */}
-      <WonderBar
-        label="GRANDE CATHÉDRALE"
-        playerPct={playerCathedPct}
-        rivalPct={bestCathedPct}
-        playerContrib={cathedrale.playerContributed.wood ?? 0}
-        required={cathedReq}
-        unit="🪵"
-      />
-
-      <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
-
-      {/* Classement guildes */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        {allGuilds.map((g, i) => (
-          <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', fontFamily: 'var(--font-mono)' }}>
-            {i === 0 && <span style={{ color: 'var(--accent)', fontSize: '0.65rem' }}>🏆</span>}
-            <span style={{ color: g.color, fontWeight: g.id === 'player' ? 600 : 400 }}>{g.id === 'player' ? 'Toi' : g.name.split(' ')[0]}</span>
-            <span style={{ color: 'var(--text-dim)' }}>{formatGold(g.gold)}g</span>
-            {i < allGuilds.length - 1 && <span style={{ color: 'var(--border)', margin: '0 2px' }}>·</span>}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ─── Reusable wonder progress bar ────────────────────────────────────────────
-
-interface WonderBarProps {
-  label: string
-  playerPct: number
-  rivalPct: number
-  playerContrib: number
-  required: number
-  unit: string
-}
-
-function WonderBar({ label, playerPct, rivalPct, playerContrib, required, unit }: WonderBarProps) {
-  const playerLeads = playerPct > rivalPct + 10
-  const texLeads    = rivalPct > playerPct + 10
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 220 }}>
-
-      {/* Label + amount */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ fontFamily: 'var(--font-ui)', fontSize: '0.62rem', color: 'var(--accent-dim)', letterSpacing: '0.07em' }}>
-          {label}
-        </span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--text-muted)' }}>
-          {playerContrib}/{required} {unit}
-        </span>
-      </div>
-
-      {/* Player bar */}
-      <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-        <div style={{ flex: 1, height: 7, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', width: `${playerPct}%`,
-            background: 'var(--player-color)',
-            borderRadius: 4,
-            transition: 'width 0.5s ease',
-            boxShadow: playerLeads ? '0 0 8px rgba(76,138,201,0.7)' : undefined,
-          }} />
-        </div>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: '0.68rem',
-          color: playerLeads ? 'var(--player-color)' : 'var(--text-muted)',
-          width: 28, textAlign: 'right', fontWeight: playerLeads ? 500 : 400,
+      {/* ── Richesse nette — classement visuel ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 210 }}>
+        <div style={{
+          fontSize: '0.55rem', color: 'var(--accent-dim)',
+          fontFamily: 'var(--font-ui)', letterSpacing: '0.12em',
+          textTransform: 'uppercase', marginBottom: 1,
         }}>
-          {playerPct}%
-        </span>
-      </div>
-
-      {/* Best rival bar */}
-      <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-        <div style={{ flex: 1, height: 7, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', width: `${rivalPct}%`,
-            background: 'var(--tex-color)',
-            borderRadius: 4,
-            transition: 'width 0.5s ease',
-            boxShadow: texLeads ? '0 0 8px rgba(201,76,76,0.7)' : undefined,
-          }} />
+          Richesse nette
         </div>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: '0.68rem',
-          color: texLeads ? 'var(--tex-color)' : 'var(--text-muted)',
-          width: 28, textAlign: 'right', fontWeight: texLeads ? 500 : 400,
-        }}>
-          {rivalPct}%
-        </span>
-      </div>
 
-      {/* Player / Rivals label */}
-      <div style={{ display: 'flex', fontSize: '0.58rem', color: 'var(--text-muted)', paddingRight: 35 }}>
-        <span style={{ color: 'var(--player-color)', opacity: 0.7 }}>Toi</span>
-        <span style={{ flex: 1 }} />
-        <span style={{ color: 'var(--tex-color)', opacity: 0.7 }}>Best rival</span>
+        {allGuilds.slice(0, 4).map((g, i) => {
+          const pct      = Math.round((g.nw / topNW) * 100)
+          const isPlayer = g.id === 'player'
+          const isActive = isPlayer || !!rivalStrategies[g.id]
+          const barColor = isActive ? g.color : 'rgba(90,80,110,0.4)'
+          const nameColor= isActive ? g.color : 'var(--text-muted)'
+
+          return (
+            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              {i === 0
+                ? <span style={{ fontSize: '0.58rem', width: 14, textAlign: 'center' }}>🏆</span>
+                : <span style={{ width: 14 }} />
+              }
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontSize: '0.63rem',
+                color: nameColor, minWidth: 30,
+                fontWeight: isPlayer ? 600 : 400,
+              }}>
+                {g.id === 'player' ? 'Toi' : g.name}
+              </span>
+              <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${pct}%`,
+                  background: barColor, borderRadius: 2,
+                  opacity: isPlayer ? 1 : 0.75,
+                  transition: 'width 0.5s ease',
+                  boxShadow: isPlayer ? `0 0 6px ${g.color}60` : 'none',
+                }} />
+              </div>
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontSize: '0.60rem',
+                color: isActive ? 'var(--text-dim)' : 'var(--text-muted)',
+                minWidth: 36, textAlign: 'right',
+              }}>
+                {formatGold(g.nw)}g
+              </span>
+            </div>
+          )
+        })}
       </div>
 
     </div>

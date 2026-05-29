@@ -399,11 +399,12 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
           <span key={r.id} style={{ color: r.color }}>■ {r.name}</span>
         ))}
         <span>□ Disponible</span>
-        {leadingRival && (
+        {leadingRival && rivalStrategies[leadingRival.id] && (
           <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.65rem' }}>
             ⚔ {leadingRival.name} → {
-              rivalStrategies[leadingRival.id]?.preferredResource === 'wood' ? 'Bois' :
-              rivalStrategies[leadingRival.id]?.preferredResource === 'pierre' ? 'Pierre' : 'Pommes'
+              rivalStrategies[leadingRival.id]?.preferredResource === 'wood'   ? 'Bois' :
+              rivalStrategies[leadingRival.id]?.preferredResource === 'pierre' ? 'Pierre' :
+              rivalStrategies[leadingRival.id]?.preferredResource === 'meuble' ? 'Immobilier' : 'Pommes'
             }
           </span>
         )}
