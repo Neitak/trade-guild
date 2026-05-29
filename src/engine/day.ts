@@ -15,9 +15,8 @@ export function resolveEndOfDay(state: GameState): GameState {
   // 1. Reveal any pending rumors due today
   s = revealDueRumors(s)
 
-  // 2. Activate rivals on Phase triggers
+  // 2. Activate Raph when player buys sawmill (Phase 1 trigger)
   s = maybeActivateRaph(s)
-  s = maybeActivateRita(s)
 
   // 3. Produce resources from all buildings
   s = produceResources(s)
@@ -219,28 +218,6 @@ function maybeActivateRaph(state: GameState): GameState {
   }
 }
 
-// ─── Rita activation (Phase 3 trigger — joueur achète une auberge) ────────────
-
-function maybeActivateRita(state: GameState): GameState {
-  if (state.rivalStrategies['rita']) return state   // already active
-  if (!state.player.buildings.some(b => b.defId === 'auberge')) return state
-
-  return {
-    ...state,
-    rivalStrategies: {
-      ...state.rivalStrategies,
-      rita: { preferredResource: 'meuble' },
-    },
-    activeRumors: [
-      ...state.activeRumors,
-      { day: state.day, text: `📍 Rita débarque avec 100 pièces d'or — elle veut l'immobilier de la Capitale.` },
-    ],
-    log: [
-      ...state.log,
-      { day: state.day, actor: 'system' as const, type: 'RIVAL_JOINED' as const, payload: { guildId: 'rita' } },
-    ],
-  }
-}
 
 // ─── Apparition narrative des nouveaux emplacements ──────────────────────────
 

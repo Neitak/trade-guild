@@ -96,7 +96,6 @@ export function initGame(): GameState {
     rivals: [
       makeRival('brice', 'Brice', 80),
       makeRival('raph',  'Raph',  60),   // inactive until player buys sawmill
-      makeRival('rita',  'Rita',  100, { pierre: 15, wood: 10 }), // inactive until player buys auberge
     ],
 
     // ─── Market ─────────────────────────────────────────────────────────────
