@@ -5,7 +5,9 @@ import wonderDefs from '../data/wonders.json'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const TICKS_PER_DAY = 30  // 30 × 3s = 90s per day (dev speed)
+// DEV SPEED: 30 ticks × 1s = 30s/day
+// PROD TARGET: 1 day = 24h real-time → TICKS_PER_DAY = 86400 (1 tick/s) or equivalent
+export const TICKS_PER_DAY = 30
 
 // ─── Map layout — bois filière (right) + 2 wonders (center) ──────────────────
 // Apple nodes kept in map for Phase 1+ but grayed — won't be interactable in Phase 0
@@ -93,14 +95,15 @@ export function initGame(): GameState {
         },
         wood: {
           resourceId: 'wood',
-          // Phase 0 : start at 1.0g (round, readable, bullish from here)
-          currentPrice:         1.0,
-          equilibriumPrice:     woodDef.equilibriumPrice,
-          baseEquilibriumPrice: woodDef.equilibriumPrice,
-          volatility:           0.04,  // low volatility in Phase 0 (tutorial feel)
+          // Phase 0 : starts at 5g (stable, inviting the player to sell)
+          // First player sell triggers caravan event → price falls toward 1g
+          currentPrice:         5.0,
+          equilibriumPrice:     5.0,
+          baseEquilibriumPrice: woodDef.equilibriumPrice,  // 3.5 — used from day 3+
+          volatility:           0.04,
           elasticityK:          woodDef.elasticityK,
           volumeAvailable:      woodDef.startingVolume,
-          priceHistory: [{ day: 0, price: 1.0 }],
+          priceHistory: [{ day: 0, price: 5.0 }],
         },
       },
     },

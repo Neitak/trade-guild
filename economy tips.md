@@ -1,3 +1,0 @@
-- faire un seul objectif à construire pour lequel on est tous en compétition. qu'est-ce qui serait fun à bâtir ?
-- Le joueur doit avoir un sentiment d'accomplissement (miyamoto et moi)
-- world map full screen. spot market en mosaique de cartes d'assets charts à trade.

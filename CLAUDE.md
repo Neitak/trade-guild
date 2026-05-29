@@ -7,39 +7,45 @@ Vérifie toujours l'équilibrage du gameplay et des nombres.
 **Name:** Trade Guild (nom provisoire)
 **What:** Jeu de gestion économique fantasy médiéval. Références : Capitalism Lab, Offworld Trading Company, Stardew Valley (rythme), Splendor (objectifs), Monopoly (tension propriétés).
 **Why:** For my personal entertainment and challenge
-**State:** Design v6 — Phase 0 jouable (session 2026-05-27/28). Moteur temps réel. Tests en cours.
+**State:** Design v6 — Phase 0 COMPLÉTÉE & TESTÉE (session 2026-05-28/29). Tick 1s. Machine d'état event-driven. Prêt pour Phase 1.
 
-## Design decisions (v6 — 2026-05-27)
+## Design decisions (v6 — 2026-05-27, refinés session 10)
 
-- **Temps réel** : tick toutes les 3s. Les prix bougent en continu. Pas de bouton "Fin de journée". Le jour avance seul (30 ticks = 90s en dev).
+- **Temps réel** : tick toutes les 1s (produit : 24h/jour). Journée = 30 ticks = 30s en dev. Les prix bougent à chaque tick.
 - **Ressources = monnaie** : ZÉRO crafting complexe. Les ressources s'accumulent, se vendent sur le spot market contre de l'or, ou servent à acheter des bâtiments.
-- **Phase 0 — Bois** : démarrage 1 bois / 0 or. Objectif : accumuler 10 bois pour débloquer le premier bâtiment (Bûcheron/Scierie). Un seul marché visible, un seul rival (Brice).
-- **Spot market = champ de bataille** : l'IA y achète aussi. 3 gestes fondamentaux : (1) vendre contre or, (2) acheter pour devancer l'IA sur un bâtiment, (3) vider pour priver l'IA (Dump).
+- **Phase 0 — Tutoriel bois** : démarrage 1 bois / 0g. Objectif : 10 bois via cycles sell→fall→buy→rise. Machine d'état event-driven (pas de timer).
+  - **stable** (démarrage) : prix ~5g, oscillation douce → joueur cherche VENDRE
+  - **falling** (après 1er sell) : caravane rumeur, prix chute vers 1g (15%/tick) → joueur achète
+  - **rising** (après 1er achat) : caravane repartie rumeur, prix remonte vers 4.5g (10%/tick) → joueur revend
+  - **cycle** : repetir falling/rising jusqu'à 10 bois
+  - **done** (≥10 bois) : Phase 0 terminée, marché normal
+- **Spot market = champ de bataille** : l'IA y achète aussi. 3 gestes fondamentaux : (1) vendre contre or, (2) acheter pour devancer l'IA, (3) vider pour priver l'IA (Dump).
 - **Dump** : inonder le marché d'une ressource = punir un adversaire qui en dépend. Coût réel pour le dumpeur aussi.
-- **Pénurie probabiliste** : événement sur le bois, 40–90% de chance, magnitude inconnue, rumeur 10–20 ticks avant. Tension : croire ou pas le signal ?
-- **Rumeurs imparfaites** : signal décalé sur les intentions IA et les événements monde. Jamais en temps réel.
+- **Rumeurs imparfaites** : signal décalé sur les intentions IA et les événements monde. Jamais en temps réel. Injectées par les transitions d'état Phase 0.
 - **Rachat hostile** : acheter par paliers de 5–10% un bâtiment adverse. 20% = 20% de sa production. 51% = prise de contrôle.
-- **Win condition (WIP)** : actuellement course aux merveilles dans le code. Vision long terme : Immeubles (Tier 3) + générosité envers le continent. En transition.
+- **Win condition (WIP)** : actuellement course aux merveilles dans le code. Vision long terme : Immeubles (Tier 3) + générosité envers le continent.
 - **Archetypes émergents** (PAS des rôles RPG) : Investisseur / Négociant / Manipulateur. Phases naturelles, switchables librement.
 - **Chronique de fin** : récit auto des actions marquantes + conseil personnalisé pour la prochaine partie.
-- **Scénario de début** : *"Tu arrives en ville avec une planche de bois et zéro pièce d'or. Brice, lui, a déjà les yeux sur la scierie."*
 - **Nœuds de ressource** : dégradation douce (production ralentit progressivement). Jamais vide brutal.
 - **Chaque guilde a une couleur** visible sur la carte.
 
-## Sensations cibles (à valider dans cet ordre)
-1. **"J'aurais dû attendre"** — regret de timing sur le prix
-2. **"Pourquoi Brice achète là ?"** — lecture sociale du marché
-3. **"La rumeur s'est réalisée et j'étais positionné"** — anticipation confirmée
+## Sensations cibles (testées ✓ en Phase 0)
+1. ✓ **"J'aurais dû attendre"** — attendre le prix haut avant de vendre → regret immédiat si on vend trop tôt
+2. ✓ **"J'aurais dû vendre"** — prix remonte après achat → opportunité de revente observée
+3. ✓ **"Pourquoi Brice achète là ?"** — il achète du bois quand le prix chute → stratégie visible
 
-## Features actuelles (Phase 0 — jouable)
-- 1 ressource (bois), 0 or au départ, 1 bois initial
-- Spot market sidebar permanente gauche (300px), toujours visible
-- Courbe de prix live (tick par tick) + historique des trades
-- Brice comme seul rival actif — achète du bois, réagit aux rumeurs
-- Pénurie probabiliste avec rumeurs graduées
-- HUD : or (avec décimales), stock bois, jour/tick, progression merveilles, classement guildes
-- Barre de progression Phase 0 : 10 bois → bouton Bûcheron (cosmétique pour l'instant)
-- Chronique de fin de partie
+## Features actuelles (Phase 0 — COMPLÉTÉE & TESTÉE)
+- 1 ressource (bois), 0g au départ, 1 bois initial
+- Spot market sidebar permanent (300px), affiche rumeurs Phase 0 uniquement (pas doublon Carte)
+- Courbe de prix live (tick par tick, 1s) + historique des trades
+- Prix 5g stable → ~1g chute (15%/tick) → ~4.5g remontée (10%/tick)
+- Machine d'état Phase 0 : stable → falling → rising → done (≥10 bois)
+- Rumeurs déclenchées à chaque transition (caravane arrivée → repartie, périmées après)
+- Brice rival actif — achète du bois au prix bas, suit la stratégie bois
+- HUD : or (décimales), stock bois, jour/tick, classement guildes
+- Barre progression Phase 0 : 10 bois reached = tuto fin (prêt Phase 1)
+- Chronique de fin de partie (connectée à game state)
+- `npm run dev` → port 5173 (localhost). Tick 1s = 30s/jour en dev
 
 ## Tech
 - Frontend: React + Vite + TypeScript

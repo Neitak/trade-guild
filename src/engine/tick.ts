@@ -1,6 +1,7 @@
 import type { GameState, ResourceId, ActiveMarketEvent, PendingMarketEvent } from './types'
 import { resolveEndOfDay } from './day'
 import { TICKS_PER_DAY } from './init'
+import { getPhase0WoodState } from './market'
 
 // ─── Main tick resolver — called every 3 seconds ──────────────────────────────
 
@@ -40,15 +41,32 @@ function applyIntraDayNoise(state: GameState): GameState {
   for (const id of Object.keys(resources) as ResourceId[]) {
     const r = resources[id]
 
-    // Phase 0 (day ≤ 3): tighter noise so the tutorial curve stays readable
-    const tickVolatility = state.day <= 3 ? 0.015 : 0.025
-    // Slight upward bias in Phase 0
-    const biasFactor = state.day <= 3 ? 0.44 : 0.49
-    const noise = (Math.random() - biasFactor) * tickVolatility
+    let newPrice: number
 
-    const newPrice = Math.max(
-      r.baseEquilibriumPrice * 0.30,
-      Math.min(r.baseEquilibriumPrice * 2.50, r.currentPrice * (1 + noise))
+    const phase0 = id === 'wood' ? getPhase0WoodState(state) : 'done'
+    if (phase0 !== 'done') {
+      if (phase0 === 'stable') {
+        // Oscillate around 5g — player reads UI and finds SELL button
+        const pulled = r.currentPrice + (5.0 - r.currentPrice) * 0.05
+        newPrice = pulled * (1 + (Math.random() - 0.50) * 0.025)
+      } else if (phase0 === 'falling') {
+        // Caravan event: strong fall toward 1g, visible every 3s
+        const pulled = r.currentPrice + (1.0 - r.currentPrice) * 0.15
+        newPrice = pulled * (1 + (Math.random() - 0.55) * 0.04)
+      } else {
+        // rising: caravan gone, price climbs back toward 4.5g — player learns to resell
+        const pulled = r.currentPrice + (4.5 - r.currentPrice) * 0.10
+        newPrice = pulled * (1 + (Math.random() - 0.44) * 0.03)
+      }
+    } else {
+      const tickVolatility = 0.025
+      const noise = (Math.random() - 0.49) * tickVolatility
+      newPrice = r.currentPrice * (1 + noise)
+    }
+
+    newPrice = Math.max(
+      r.baseEquilibriumPrice * 0.20,
+      Math.min(r.baseEquilibriumPrice * 2.50, newPrice)
     )
 
     resources[id] = { ...r, currentPrice: Math.max(0.05, newPrice) }

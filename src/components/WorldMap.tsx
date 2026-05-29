@@ -132,26 +132,6 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare }: Props) {
         CARTE
       </h2>
 
-      {/* Rumors */}
-      {state.activeRumors.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {[...new Map(state.activeRumors.map(r => [r.text, r])).values()].slice(-3).map((r, i) => (
-            <div key={i} style={{
-              background: 'rgba(201,168,76,0.08)',
-              border: '1px solid var(--accent-dim)',
-              borderRadius: 6,
-              padding: '4px 10px',
-              fontSize: '0.78rem',
-              color: 'var(--text-dim)',
-              fontStyle: 'italic',
-              animation: 'fadeIn 0.3s ease',
-            }}>
-              📜 {r.text}
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* SVG Map */}
       <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ flex: 1, borderRadius: 8 }}>
         <image href={bgMap} x={0} y={0} width={svgW} height={svgH} preserveAspectRatio="xMidYMid slice" />

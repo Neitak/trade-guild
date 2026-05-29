@@ -8,6 +8,25 @@ function producerDefsFor(id: ResourceId): BuildingId[] {
   return id === 'apple' ? APPLE_PRODUCERS : WOOD_PRODUCERS
 }
 
+// ─── Phase 0 tutorial state machine ──────────────────────────────────────────
+// Cycles sell→fall→buy→rise until the player holds 10 wood, then exits to normal.
+// State is derived purely from the event log — no extra fields needed.
+
+export type Phase0State = 'stable' | 'falling' | 'rising' | 'done'
+
+export function getPhase0WoodState(state: GameState): Phase0State {
+  if ((state.player.inventory['wood'] ?? 0) >= 10) return 'done'
+  const sells = state.log.filter(
+    e => e.actor === 'player' && e.type === 'SELL' && (e.payload as any)?.resourceId === 'wood'
+  ).length
+  const buys = state.log.filter(
+    e => e.actor === 'player' && e.type === 'BUY' && (e.payload as any)?.resourceId === 'wood'
+  ).length
+  if (sells === 0)    return 'stable'
+  if (sells > buys)   return 'falling'
+  return 'rising'
+}
+
 // ─── Price mechanics ──────────────────────────────────────────────────────────
 
 /**
@@ -32,6 +51,10 @@ function calcPriceAfterBuy(market: ResourceMarket, qty: number): number {
  * Daily price recovery toward equilibrium + random walk noise.
  * Also adjusts equilibriumPrice based on extractor degradation (supply signal).
  */
+// Phase 0 wood: caravan event pulls price down toward 1g for first 3 days
+const PHASE0_WOOD_TARGET = 1.0
+const PHASE0_RECOVERY_RATE = 0.45  // fast pull (vs 0.15 normal)
+
 export function recoverPrices(state: GameState): MarketState {
   const allBuildings = [...state.player.buildings, ...state.rivals.flatMap(r => r.buildings)]
   const resources = { ...state.market.resources }
@@ -39,7 +62,7 @@ export function recoverPrices(state: GameState): MarketState {
   for (const id of Object.keys(resources) as ResourceId[]) {
     const r = resources[id]
 
-    // Degradation → supply signal: equilibriumPrice rises as extractors degrade
+    // Degradation → supply signal
     const producerIds = producerDefsFor(id)
     const extractors  = allBuildings.filter(b => producerIds.includes(b.defId))
     const avgDegradation = extractors.length > 0
@@ -47,19 +70,33 @@ export function recoverPrices(state: GameState): MarketState {
       : 0
     const newEquilibrium = r.baseEquilibriumPrice * (1 + avgDegradation)
 
-    // Recover toward new equilibrium (15%/day)
-    const recovered = r.currentPrice + (newEquilibrium - r.currentPrice) * 0.15
+    let recovered: number
+    let biasFactor: number
 
-    // Random walk noise
-    // Phase 0 (day ≤ 3): strong upward bias — tutorial feel, player wins early
-    // Phase 1+: subtle +2% drift (standard)
-    const biasFactor = state.day <= 3 ? 0.28 : 0.48
-    const noise    = (Math.random() - biasFactor) * r.volatility
+    const phase0 = id === 'wood' ? getPhase0WoodState(state) : 'done'
+    if (phase0 !== 'done') {
+      if (phase0 === 'stable') {
+        recovered  = r.currentPrice + (5.0 - r.currentPrice) * 0.15
+        biasFactor = 0.50
+      } else if (phase0 === 'falling') {
+        recovered  = r.currentPrice + (PHASE0_WOOD_TARGET - r.currentPrice) * PHASE0_RECOVERY_RATE
+        biasFactor = 0.72
+      } else {  // rising
+        recovered  = r.currentPrice + (4.5 - r.currentPrice) * 0.40
+        biasFactor = 0.44
+      }
+    } else {
+      // Normal: recover toward equilibrium (15%/day), slight upward drift
+      recovered = r.currentPrice + (newEquilibrium - r.currentPrice) * 0.15
+      biasFactor = 0.48
+    }
+
+    const noise     = (Math.random() - biasFactor) * r.volatility
     const withNoise = recovered * (1 + noise)
 
-    // Clamp: 30% to 250% of baseEquilibriumPrice
+    // Clamp: 20% to 250% of baseEquilibriumPrice
     const clamped = Math.max(
-      r.baseEquilibriumPrice * 0.30,
+      r.baseEquilibriumPrice * 0.20,
       Math.min(r.baseEquilibriumPrice * 2.50, withNoise)
     )
 
@@ -95,6 +132,16 @@ export function sellToMarket(
     payload: { resourceId, qty: actualQty, price: resource.currentPrice, gold: goldEarned },
   }
 
+  // Each Phase 0 sell (stable or rising → falling) triggers the caravan rumor
+  const phase0 = resourceId === 'wood' ? getPhase0WoodState(state) : 'done'
+  const isPhase0SellTrigger = phase0 === 'stable' || phase0 === 'rising'
+  const newRumors = isPhase0SellTrigger
+    ? [
+        ...state.activeRumors.filter(r => !r.text.includes('caravane') && !r.text.includes('redresse')),
+        { day: state.day, text: "⚠ Une grande caravane vient d'arriver en ville, chargée de bois. Le marché s'effondre." },
+      ]
+    : state.activeRumors
+
   return {
     ...state,
     player: {
@@ -120,6 +167,7 @@ export function sellToMarket(
       },
     },
     log: [...state.log, event],
+    activeRumors: newRumors,
   }
 }
 
@@ -142,6 +190,21 @@ export function buyFromMarket(
     payload: { resourceId, qty: actualQty, price: resource.currentPrice, cost },
   }
 
+  const newWoodQty = (state.player.inventory[resourceId] ?? 0) + actualQty
+  // First buy of each down-cycle transitions falling → rising
+  const woodSells = state.log.filter(e => e.actor === 'player' && e.type === 'SELL' && (e.payload as any)?.resourceId === 'wood').length
+  const woodBuys  = state.log.filter(e => e.actor === 'player' && e.type === 'BUY'  && (e.payload as any)?.resourceId === 'wood').length
+  const isPhase0BuyTrigger = resourceId === 'wood'
+    && woodSells === woodBuys + 1  // exactly one sell ahead → this buy balances → rising
+    && newWoodQty < 10
+
+  const newRumors = isPhase0BuyTrigger
+    ? [
+        ...state.activeRumors.filter(r => !r.text.includes('caravane') && !r.text.includes('redresse')),
+        { day: state.day, text: "La caravane est repartie. Le marché du bois se redresse. C'est le moment de revendre." },
+      ]
+    : state.activeRumors
+
   return {
     ...state,
     player: {
@@ -149,7 +212,7 @@ export function buyFromMarket(
       gold: state.player.gold - cost,
       inventory: {
         ...state.player.inventory,
-        [resourceId]: (state.player.inventory[resourceId] ?? 0) + actualQty,
+        [resourceId]: newWoodQty,
       },
     },
     market: {
@@ -167,6 +230,7 @@ export function buyFromMarket(
       },
     },
     log: [...state.log, event],
+    activeRumors: newRumors,
   }
 }
 

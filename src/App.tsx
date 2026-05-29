@@ -17,7 +17,7 @@ export default function App() {
   const [state, setState] = useState<GameState>(() => initGame())
   const [chronicle, setChronicle] = useState<ChronicleResult | null>(null)
 
-  // ─── Real-time tick engine (3s interval) ────────────────────────────────────
+  // ─── Real-time tick engine (1s interval) ────────────────────────────────────
   useEffect(() => {
     if (state.phase !== 'playing') return
     const id = setInterval(() => {
@@ -29,7 +29,7 @@ export default function App() {
         }
         return next
       })
-    }, 3000)
+    }, 1000)
     return () => clearInterval(id)
   }, [state.phase])
 
