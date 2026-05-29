@@ -15,8 +15,9 @@ export function resolveEndOfDay(state: GameState): GameState {
   // 1. Reveal any pending rumors due today
   s = revealDueRumors(s)
 
-  // 2. Activate Raph when player buys sawmill (Phase 1 trigger)
+  // 2. Activate rivals on Phase triggers
   s = maybeActivateRaph(s)
+  s = maybeActivateRita(s)
 
   // 3. Produce resources from all buildings
   s = produceResources(s)
@@ -151,38 +152,17 @@ function updateNetWorth(state: GameState): GameState {
 }
 
 function checkGameOver(state: GameState): GameState {
-  for (const wonder of state.wonders) {
-    const resourceId = Object.keys(wonder.requiredResources)[0] as ResourceId
-    const required   = wonder.requiredResources[resourceId] ?? 0
-    const playerDone = (wonder.playerContributed[resourceId] ?? 0) >= required
+  const playerWorth = state.player.netWorthHistory.at(-1)?.value ?? 0
+  const bestRival   = Math.max(...state.rivals.map(r => r.netWorthHistory.at(-1)?.value ?? 0))
 
-    if (playerDone && !wonder.complete) {
-      const updated = state.wonders.map(w =>
-        w.id === wonder.id ? { ...w, complete: true, completedBy: 'player' as const, completedOnDay: state.day } : w
-      )
-      return { ...state, phase: 'won', wonders: updated }
-    }
-
-    // Check each rival
-    for (const rival of state.rivals) {
-      const rivalDone = (wonder.rivalContributed[rival.id]?.[resourceId] ?? 0) >= required
-      if (rivalDone && !wonder.complete) {
-        const updated = state.wonders.map(w =>
-          w.id === wonder.id ? { ...w, complete: true, completedBy: rival.id, completedOnDay: state.day } : w
-        )
-        return { ...state, phase: 'lost', wonders: updated }
-      }
-    }
-
-    if (wonder.complete) {
-      return { ...state, phase: wonder.completedBy === 'player' ? 'won' : 'lost' }
-    }
+  // Early win: auberge T5 + clear lead (Immobilier domination)
+  const aubergeT5 = state.player.buildings.some(b => b.defId === 'auberge' && (b.level ?? 1) >= 5)
+  if (aubergeT5 && playerWorth > bestRival * 1.3) {
+    return { ...state, phase: 'won' }
   }
 
-  // Day limit fallback — player wins if worth ≥ best rival
+  // Day 60 limit — richesse nette
   if (state.day >= 60) {
-    const playerWorth = state.player.netWorthHistory.at(-1)?.value ?? 0
-    const bestRival   = Math.max(...state.rivals.map(r => r.netWorthHistory.at(-1)?.value ?? 0))
     return { ...state, phase: playerWorth >= bestRival ? 'won' : 'lost' }
   }
 
@@ -239,6 +219,29 @@ function maybeActivateRaph(state: GameState): GameState {
   }
 }
 
+// ─── Rita activation (Phase 3 trigger — joueur achète une auberge) ────────────
+
+function maybeActivateRita(state: GameState): GameState {
+  if (state.rivalStrategies['rita']) return state   // already active
+  if (!state.player.buildings.some(b => b.defId === 'auberge')) return state
+
+  return {
+    ...state,
+    rivalStrategies: {
+      ...state.rivalStrategies,
+      rita: { preferredResource: 'meuble' },
+    },
+    activeRumors: [
+      ...state.activeRumors,
+      { day: state.day, text: `📍 Rita débarque avec 100 pièces d'or — elle veut l'immobilier de la Capitale.` },
+    ],
+    log: [
+      ...state.log,
+      { day: state.day, actor: 'system' as const, type: 'RIVAL_JOINED' as const, payload: { guildId: 'rita' } },
+    ],
+  }
+}
+
 // ─── Apparition narrative des nouveaux emplacements ──────────────────────────
 
 function unlockNodes(state: GameState): GameState {
@@ -281,6 +284,16 @@ function unlockNodes(state: GameState): GameState {
     charpenterie_slot_1: {
       condition: () => state.player.buildings.some(b => b.defId === 'menuiserie'),
       message: `Votre Menuiserie est construite — l'Atelier Charron cherche un acquéreur dans la zone artisanale.`,
+    },
+    // Capitale — Auberge du Carrefour (Phase 3)
+    auberge_slot_1: {
+      condition: () => state.player.buildings.some(b => b.defId === 'menuiserie'),
+      message: `La Capitale s'anime — l'Auberge du Carrefour cherche un propriétaire (40 or + 20 bois + 10 pierre).`,
+    },
+    // 2ème Auberge — dès que quelqu'un en possède une
+    auberge_slot_2: {
+      condition: () => allBuildings.some(b => b.defId === 'auberge'),
+      message: `L'immobilier est en plein essor — la Grande Auberge est désormais disponible.`,
     },
   }
 

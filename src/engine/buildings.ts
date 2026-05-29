@@ -3,9 +3,12 @@ import { getRival, updateRival } from './types'
 import buildingDefs from '../data/buildings.json'
 
 // ─── Sawmill upgrade table ────────────────────────────────────────────────────
-// Level → production per day. T1=8, doubles each tier.
 export const SAWMILL_PRODUCTION: Record<number, number> = { 1: 8, 2: 16, 3: 32, 4: 64, 5: 128 }
 const SAWMILL_UPGRADE_COST: Record<number, number> = { 1: 25, 2: 50, 3: 100, 4: 200 }
+
+// ─── Auberge upgrade table (CONFORT — meubles) ────────────────────────────────
+export const AUBERGE_REVENUE: Record<number, number> = { 1: 20, 2: 35, 3: 55, 4: 80, 5: 110 }
+export const AUBERGE_UPGRADE_COST: Record<number, number> = { 1: 10, 2: 20, 3: 35, 4: 50 }
 
 function getBuildingDef(id: BuildingId) {
   const def = (buildingDefs as any[]).find(b => b.id === id)
@@ -66,7 +69,7 @@ export function buyBuilding(state: GameState, defId: BuildingId): GameState {
   }
 }
 
-// ─── Player upgrades a building (sawmill T1→T5) ───────────────────────────────
+// ─── Player upgrades a building (sawmill: gold / auberge: meubles) ───────────
 
 export function upgradeBuilding(state: GameState, instanceId: string): GameState {
   const building = state.player.buildings.find(b => b.instanceId === instanceId)
@@ -78,6 +81,32 @@ export function upgradeBuilding(state: GameState, instanceId: string): GameState
   const maxLevel = def.maxLevel ?? 5
   if (currentLevel >= maxLevel) return state
 
+  // CONFORT-based upgrade (e.g. auberge uses meubles)
+  if (def.upgradeResourceId && def.upgradeResourceCosts) {
+    const resCost = def.upgradeResourceCosts[String(currentLevel)] ?? 999
+    const resourceId = def.upgradeResourceId as ResourceId
+    if ((state.player.inventory[resourceId] ?? 0) < resCost) return state
+
+    const event: GameEvent = {
+      day: state.day,
+      actor: 'player',
+      type: 'UPGRADE_BUILDING',
+      payload: { instanceId, defId: building.defId, fromLevel: currentLevel, toLevel: currentLevel + 1, resourceId, resCost },
+    }
+    return {
+      ...state,
+      player: {
+        ...state.player,
+        inventory: { ...state.player.inventory, [resourceId]: (state.player.inventory[resourceId] ?? 0) - resCost },
+        buildings: state.player.buildings.map(b =>
+          b.instanceId === instanceId ? { ...b, level: currentLevel + 1 } : b
+        ),
+      },
+      log: [...state.log, event],
+    }
+  }
+
+  // Gold-based upgrade (sawmill)
   const cost = SAWMILL_UPGRADE_COST[currentLevel]
   if (state.player.gold < cost) return state
 
@@ -87,7 +116,6 @@ export function upgradeBuilding(state: GameState, instanceId: string): GameState
     type: 'UPGRADE_BUILDING',
     payload: { instanceId, defId: building.defId, fromLevel: currentLevel, toLevel: currentLevel + 1, cost },
   }
-
   return {
     ...state,
     player: {
@@ -114,6 +142,29 @@ export function upgradeBuildingRival(state: GameState, guildId: GuildId, instanc
   const maxLevel = def.maxLevel ?? 5
   if (currentLevel >= maxLevel) return state
 
+  // CONFORT-based upgrade
+  if (def.upgradeResourceId && def.upgradeResourceCosts) {
+    const resCost = def.upgradeResourceCosts[String(currentLevel)] ?? 999
+    const resourceId = def.upgradeResourceId as ResourceId
+    if ((rival.inventory[resourceId] ?? 0) < resCost) return state
+
+    const event: GameEvent = {
+      day: state.day,
+      actor: guildId,
+      type: 'UPGRADE_BUILDING',
+      payload: { instanceId, defId: building.defId, fromLevel: currentLevel, toLevel: currentLevel + 1, resourceId, resCost },
+    }
+    const updatedRival = {
+      ...rival,
+      inventory: { ...rival.inventory, [resourceId]: (rival.inventory[resourceId] ?? 0) - resCost },
+      buildings: rival.buildings.map(b =>
+        b.instanceId === instanceId ? { ...b, level: currentLevel + 1 } : b
+      ),
+    }
+    return { ...updateRival(state, updatedRival), log: [...state.log, event] }
+  }
+
+  // Gold-based upgrade (sawmill)
   const cost = SAWMILL_UPGRADE_COST[currentLevel]
   if (rival.gold < cost) return state
 
@@ -123,7 +174,6 @@ export function upgradeBuildingRival(state: GameState, guildId: GuildId, instanc
     type: 'UPGRADE_BUILDING',
     payload: { instanceId, defId: building.defId, fromLevel: currentLevel, toLevel: currentLevel + 1, cost },
   }
-
   const updatedRival = {
     ...rival,
     gold: rival.gold - cost,
@@ -131,11 +181,7 @@ export function upgradeBuildingRival(state: GameState, guildId: GuildId, instanc
       b.instanceId === instanceId ? { ...b, level: currentLevel + 1 } : b
     ),
   }
-
-  return {
-    ...updateRival(state, updatedRival),
-    log: [...state.log, event],
-  }
+  return { ...updateRival(state, updatedRival), log: [...state.log, event] }
 }
 
 // ─── Rival buys a building ────────────────────────────────────────────────────
@@ -260,9 +306,11 @@ function applyGuildProduction(state: GameState, guildId: GuildId): GameState {
         : { ...updateRival(s, updatedGuild), log: [...s.log, event] }
     }
 
-    // ── Tier 2 revenue ────────────────────────────────────────────────────────
-    if (def.revenuePerDay && def.tier === 2) {
-      const rev = Math.round(def.revenuePerDay * (building.shares / 100))
+    // ── Tier 2/3 revenue (Tier 3 uses level table) ───────────────────────────
+    if (def.revenuePerDay) {
+      const level = building.level ?? 1
+      const baseRev = def.upgradeRevenues ? (def.upgradeRevenues[String(level)] ?? def.revenuePerDay) : def.revenuePerDay
+      const rev = Math.round(baseRev * (building.shares / 100))
       const event: GameEvent = {
         day: s.day,
         actor: guildId,

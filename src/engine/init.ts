@@ -21,8 +21,10 @@ export const TICKS_PER_DAY = 30
 
 const MAP_NODES: MapNode[] = [
   // ── Zone Capitale ──────────────────────────────────────────────────
-  { id: 'wonder_slot',       zone: 'capitale', label: 'Tour de Magie',        x: 230, y: 68, type: 'wonder' },
-  { id: 'cathedrale_slot',   zone: 'capitale', label: 'Grande Cathédrale',    x: 490, y: 68, type: 'wonder' },
+  { id: 'auberge_slot_1',    zone: 'capitale', label: "Auberge du Carrefour", x: 100, y: 68, type: 'commercial', buildingDefId: 'auberge', locked: true },
+  { id: 'wonder_slot',       zone: 'capitale', label: 'Tour de Magie',        x: 270, y: 68, type: 'wonder' },
+  { id: 'cathedrale_slot',   zone: 'capitale', label: 'Grande Cathédrale',    x: 450, y: 68, type: 'wonder' },
+  { id: 'auberge_slot_2',    zone: 'capitale', label: 'Grande Auberge',       x: 620, y: 68, type: 'commercial', buildingDefId: 'auberge', locked: true },
 
   // ── Zone Artisanale ────────────────────────────────────────────────
   { id: 'charpenterie_slot_1', zone: 'artisanale', label: 'Atelier Charron',   x: 125, y: 195, type: 'commercial', buildingDefId: 'charpenterie', locked: true },
@@ -51,13 +53,13 @@ export function initGame(): GameState {
   const towerDef      = wDefs.find(w => w.id === 'tower_of_magic')!
   const cathedraleDef = wDefs.find(w => w.id === 'grande_cathedrale')!
 
-  function makeRival(id: 'brice' | 'raph' | 'rita', name: string, gold: number): GuildState {
+  function makeRival(id: 'brice' | 'raph' | 'rita', name: string, gold: number, extraInventory?: Partial<Record<import('./types').ResourceId, number>>): GuildState {
     return {
       id,
       name,
       color: GUILD_COLORS[id],
       gold,
-      inventory: { apple: 0, wood: 0, pierre: 0, meuble: 0 },
+      inventory: { apple: 0, wood: 0, pierre: 0, meuble: 0, ...extraInventory },
       buildings: [],
       netWorthHistory: [],
     }
@@ -94,6 +96,7 @@ export function initGame(): GameState {
     rivals: [
       makeRival('brice', 'Brice', 80),
       makeRival('raph',  'Raph',  60),   // inactive until player buys sawmill
+      makeRival('rita',  'Rita',  100, { pierre: 15, wood: 10 }), // inactive until player buys auberge
     ],
 
     // ─── Market ─────────────────────────────────────────────────────────────

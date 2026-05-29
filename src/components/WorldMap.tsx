@@ -2,26 +2,33 @@ import { useState, useEffect, useRef } from 'react'
 import type { GameState, BuildingId, GuildId } from '../engine/types'
 import { GUILD_COLORS } from '../engine/types'
 import { previewBuyShare } from '../engine/shares'
-import { SAWMILL_PRODUCTION } from '../engine/buildings'
+import { SAWMILL_PRODUCTION, AUBERGE_REVENUE } from '../engine/buildings'
 import buildingDefs from '../data/buildings.json'
 import bgMap from '../../images/bg01.png'
 
-function getBuildingCostLabel(defId: string, state: GameState): string {
+function getBuildingCostLabel(defId: string): string {
   const def = (buildingDefs as any[]).find(b => b.id === defId)
   if (!def) return ''
-  if (def.costGold) return `${def.costGold} or`
-  if (def.costResources?.apple) return `${def.costResources.apple} 🍎`
-  if (def.costResources?.wood)  return `${def.costResources.wood} 🪵`
-  return ''
+  const parts: string[] = []
+  if (def.costGold) parts.push(`${def.costGold}or`)
+  if (def.costResources?.wood)   parts.push(`${def.costResources.wood}🪵`)
+  if (def.costResources?.pierre) parts.push(`${def.costResources.pierre}🗿`)
+  if (def.costResources?.apple)  parts.push(`${def.costResources.apple}🍎`)
+  if (def.costResources?.meuble) parts.push(`${def.costResources.meuble}🪑`)
+  return parts.join('+')
 }
 
 function canAffordBuilding(defId: string, state: GameState): boolean {
   const def = (buildingDefs as any[]).find(b => b.id === defId)
   if (!def) return false
-  if (def.costGold) return state.player.gold >= def.costGold
-  if (def.costResources?.apple) return (state.player.inventory.apple ?? 0) >= def.costResources.apple
-  if (def.costResources?.wood)  return (state.player.inventory.wood  ?? 0) >= def.costResources.wood
-  return false
+  if (def.costGold && state.player.gold < def.costGold) return false
+  if (def.costResources) {
+    const inv = state.player.inventory
+    for (const [res, qty] of Object.entries(def.costResources)) {
+      if ((inv[res as keyof typeof inv] ?? 0) < (qty as number)) return false
+    }
+  }
+  return true
 }
 
 interface Props {
@@ -34,8 +41,10 @@ interface Props {
 // ─── Node positions — match init.ts MAP_NODES exactly ────────────────────────
 const NODE_POSITIONS: Record<string, { x: number; y: number; label: string; icon: string }> = {
   // Capitale
-  wonder_slot:          { x: 230, y:  68, label: 'Tour de Magie',        icon: '🗼' },
-  cathedrale_slot:      { x: 490, y:  68, label: 'Grande Cathédrale',    icon: '⛪' },
+  auberge_slot_1:       { x: 100, y:  68, label: 'Auberge du Carrefour', icon: '🏨' },
+  wonder_slot:          { x: 270, y:  68, label: 'Tour de Magie',        icon: '🗼' },
+  cathedrale_slot:      { x: 450, y:  68, label: 'Grande Cathédrale',    icon: '⛪' },
+  auberge_slot_2:       { x: 620, y:  68, label: 'Grande Auberge',       icon: '🏨' },
   // Artisanale
   charpenterie_slot_1:  { x: 125, y: 195, label: 'Atelier Charron',      icon: '🪑' },
   market_slot_1:        { x: 295, y: 195, label: 'Place du Marché',      icon: '🏪' },
@@ -59,10 +68,13 @@ const EDGES: [string, string][] = [
   ['scierie_slot_1', 'menuiserie_slot_1'],
   ['scierie_slot_2', 'menuiserie_slot_1'],
   ['scierie_slot_1', 'charpenterie_slot_1'],
-  // Artisanale → Capitale
+  // Artisanale → Capitale (wonders)
   ['menuiserie_slot_1', 'cathedrale_slot'],
   ['market_slot_1',     'wonder_slot'],
   ['charpenterie_slot_1', 'cathedrale_slot'],
+  // Artisanale → Capitale (auberge — needs bois + pierre + or)
+  ['charpenterie_slot_1', 'auberge_slot_1'],
+  ['menuiserie_slot_1',   'auberge_slot_2'],
 ]
 
 // ─── Zone bands ───────────────────────────────────────────────────────────────
@@ -211,26 +223,34 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
           const buildingDef = defId ? (buildingDefs as any[]).find(d => d.id === defId) : null
           const level = ownedBuilding?.level ?? 1
           const baseProduction = buildingDef?.productionPerDay ?? 0
-          const levelBonus = buildingDef?.upgradable ? (SAWMILL_PRODUCTION[level] / SAWMILL_PRODUCTION[1]) : 1
+          const levelBonus = buildingDef?.upgradable && buildingDef?.produces ? (SAWMILL_PRODUCTION[level] / SAWMILL_PRODUCTION[1]) : 1
           const effectiveProd = buildingDef?.productionPerDay
             ? Math.round(baseProduction * levelBonus * (1 - degradation))
             : 0
-          const dailyRevenue = buildingDef?.revenuePerDay ?? 0
+          // Revenue: auberge uses AUBERGE_REVENUE table; others use flat revenuePerDay
+          const isAuberge = buildingDef?.id === 'auberge'
+          const dailyRevenue = isAuberge
+            ? (AUBERGE_REVENUE[level] ?? buildingDef?.revenuePerDay ?? 0)
+            : (buildingDef?.revenuePerDay ?? 0)
           const prodIcon = buildingDef?.produces === 'apple' ? '🍎'
                          : buildingDef?.produces === 'wood'  ? '🪵'
                          : buildingDef?.produces === 'pierre' ? '🗿'
                          : buildingDef?.produces === 'meuble' ? '🪑'
                          : null
           const prodLabel = owner && !isWonder
-            ? (effectiveProd > 0 && prodIcon ? `+${effectiveProd} ${prodIcon}/j` : dailyRevenue > 0 ? `+${dailyRevenue} or/j` : null)
+            ? (effectiveProd > 0 && prodIcon ? `+${effectiveProd} ${prodIcon}/j` : dailyRevenue > 0 ? `+${dailyRevenue}or/j` : null)
             : null
 
-          // Upgrade info (sawmill)
+          // Upgrade info
           const isPlayerOwned = owner === 'player'
           const isUpgradable = buildingDef?.upgradable && isPlayerOwned && instanceId
-          const upgradeCost = isUpgradable ? (UPGRADE_COSTS[level] ?? null) : null
-          const canAffordUpgrade = upgradeCost != null && state.player.gold >= upgradeCost
           const maxLevel = buildingDef?.maxLevel ?? 5
+          // Gold upgrade (sawmill) vs CONFORT upgrade (auberge)
+          const isConfortUpgrade = isUpgradable && !!buildingDef?.upgradeResourceId
+          const upgradeCost = !isConfortUpgrade && isUpgradable ? (UPGRADE_COSTS[level] ?? null) : null
+          const confortCost = isConfortUpgrade ? (buildingDef?.upgradeResourceCosts?.[String(level)] ?? null) : null
+          const canAffordUpgrade = upgradeCost != null && state.player.gold >= upgradeCost
+          const canAffordConfort = confortCost != null && (state.player.inventory.meuble ?? 0) >= confortCost
 
           // Wonder progress
           let pPct = 0, rPct = 0
@@ -312,13 +332,13 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                     disabled={!canAffordBuilding(defId, state)}
                     onClick={() => onBuyBuilding(defId as BuildingId)}
                   >
-                    {getBuildingCostLabel(defId, state)} — Acheter
+                    {getBuildingCostLabel(defId)} — Acheter
                   </button>
                 </foreignObject>
               )}
 
-              {/* Upgrade button (player-owned upgradable buildings) */}
-              {isUpgradable && level < maxLevel && upgradeCost != null && (
+              {/* Upgrade button — gold (sawmill) */}
+              {isUpgradable && !isConfortUpgrade && level < maxLevel && upgradeCost != null && (
                 <foreignObject x={pos.x - 60} y={pos.y + R + (owner && instanceId ? 36 : 14)} width={120} height={22}>
                   <button
                     className="btn-secondary"
@@ -330,7 +350,25 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                     disabled={!canAffordUpgrade}
                     onClick={() => onUpgradeBuilding(instanceId!)}
                   >
-                    ↑ T{level + 1} — {upgradeCost} or
+                    ↑ T{level + 1} — {upgradeCost}or
+                  </button>
+                </foreignObject>
+              )}
+
+              {/* Upgrade button — CONFORT/meubles (auberge) */}
+              {isConfortUpgrade && level < maxLevel && confortCost != null && (
+                <foreignObject x={pos.x - 60} y={pos.y + R + (owner && instanceId ? 36 : 14)} width={120} height={22}>
+                  <button
+                    className="btn-secondary"
+                    style={{
+                      width: '100%', padding: '2px 0', fontSize: '0.62rem',
+                      borderColor: canAffordConfort ? '#e67e22' : undefined,
+                      opacity: canAffordConfort ? 1 : 0.45,
+                    }}
+                    disabled={!canAffordConfort}
+                    onClick={() => onUpgradeBuilding(instanceId!)}
+                  >
+                    ↑ T{level + 1} — {confortCost}🪑
                   </button>
                 </foreignObject>
               )}

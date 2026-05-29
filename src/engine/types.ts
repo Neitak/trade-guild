@@ -4,7 +4,7 @@ export type ResourceId = 'apple' | 'wood' | 'pierre' | 'meuble'
 
 export type ResourceCategory = 'CONSTRUCTION' | 'CONFORT' | 'LUXE'
 
-export type BuildingId = 'orchard' | 'fruit_market' | 'sawmill' | 'menuiserie' | 'charpenterie' | 'carriere'
+export type BuildingId = 'orchard' | 'fruit_market' | 'sawmill' | 'menuiserie' | 'charpenterie' | 'carriere' | 'auberge'
 
 export type WonderId = 'tower_of_magic' | 'grande_cathedrale'
 
@@ -20,11 +20,14 @@ export interface BuildingDef {
   costResources?: Partial<Record<ResourceId, number>>
   produces?: ResourceId
   productionPerDay: number
-  revenuePerDay?: number       // Tier 2 — gold/day
+  revenuePerDay?: number       // Tier 2/3 — gold/day
   autoConsumeInput?: ResourceId // Atelier: consumes this resource each day
   autoConsumeQty?: number       // Atelier: units consumed per day
-  upgradable?: boolean          // can be leveled up (sawmill T1→T5)
+  upgradable?: boolean          // can be leveled up
   maxLevel?: number
+  upgradeResourceId?: ResourceId           // CONFORT upgrade: resource consumed per level-up
+  upgradeResourceCosts?: Record<string, number> // cost at each current level (key = level as string)
+  upgradeRevenues?: Record<string, number>      // revenue at each level (key = level as string)
 }
 
 // ─── Guild IDs ────────────────────────────────────────────────────────────────

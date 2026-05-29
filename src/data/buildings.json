@@ -56,5 +56,20 @@
     "autoConsumeQty": 5,
     "produces": "meuble",
     "productionPerDay": 2
+  },
+  {
+    "id": "auberge",
+    "name": "Auberge",
+    "tier": 3,
+    "zone": "capitale",
+    "costGold": 40,
+    "costResources": { "wood": 20, "pierre": 10 },
+    "productionPerDay": 0,
+    "revenuePerDay": 20,
+    "upgradable": true,
+    "maxLevel": 5,
+    "upgradeResourceId": "meuble",
+    "upgradeResourceCosts": { "1": 10, "2": 20, "3": 35, "4": 50 },
+    "upgradeRevenues": { "1": 20, "2": 35, "3": 55, "4": 80, "5": 110 }
   }
 ]

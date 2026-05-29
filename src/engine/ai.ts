@@ -14,6 +14,8 @@ export function runRivalAI(state: GameState, guildId: GuildId): GameState {
     s = runAppleStrategy(s, guildId)
   } else if (strategy.preferredResource === 'pierre') {
     s = runPierreStrategy(s, guildId)
+  } else if (strategy.preferredResource === 'meuble') {
+    s = runImmoStrategy(s, guildId)
   } else {
     s = runWoodStrategy(s, guildId)
   }
@@ -251,6 +253,61 @@ function runPierreStrategy(state: GameState, guildId: GuildId): GameState {
   if (pierre < 30 && pierreMarket.currentPrice < pierreMarket.equilibriumPrice * 0.90 && rival().gold >= 30) {
     const qty = Math.min(15, pierreMarket.volumeAvailable, Math.floor(rival().gold * 0.2))
     if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'pierre', qty)
+  }
+
+  return s
+}
+
+// ─── Immobilier filière (Rita) — Phase 3 ────────────────────────────────────
+
+function runImmoStrategy(state: GameState, guildId: GuildId): GameState {
+  let s = state
+  const rival = () => getRival(s, guildId)
+
+  const hasAuberge = rival().buildings.some(b => b.defId === 'auberge')
+  const aubergeAvailable = s.map.nodes.some(
+    n => n.buildingDefId === 'auberge' && !n.locked && !n.ownedBy
+  )
+
+  if (!hasAuberge && aubergeAvailable) {
+    // Accumulate bois + pierre to build auberge (40or + 20bois + 10pierre)
+    const pierre = rival().inventory['pierre'] ?? 0
+    const wood   = rival().inventory['wood'] ?? 0
+    if (pierre < 10 && rival().gold > 35) {
+      const qty = Math.min(10 - pierre, s.market.resources['pierre'].volumeAvailable, Math.floor(rival().gold * 0.2))
+      if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'pierre', qty)
+    }
+    if (wood < 20 && rival().gold > 35) {
+      const qty = Math.min(20 - wood, s.market.resources['wood'].volumeAvailable, Math.floor(rival().gold * 0.15))
+      if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'wood', qty)
+    }
+    if (rival().gold >= 40 && (rival().inventory['wood'] ?? 0) >= 20 && (rival().inventory['pierre'] ?? 0) >= 10) {
+      s = rivalBuyBuilding(s, guildId, 'auberge')
+    }
+    return s
+  }
+
+  if (hasAuberge) {
+    // Upgrade auberge with meubles (CONFORT)
+    const auberge = rival().buildings.find(b => b.defId === 'auberge')!
+    const level = auberge.level ?? 1
+    if (level < 5) {
+      const MEUBLE_COSTS: Record<number, number> = { 1: 10, 2: 20, 3: 35, 4: 50 }
+      const meubleNeed = MEUBLE_COSTS[level] ?? 999
+      const meubles = rival().inventory['meuble'] ?? 0
+      if (meubles < meubleNeed && rival().gold > 20) {
+        const qty = Math.min(meubleNeed - meubles, s.market.resources['meuble'].volumeAvailable, Math.floor(rival().gold * 0.35))
+        if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'meuble', qty)
+      }
+      if ((rival().inventory['meuble'] ?? 0) >= meubleNeed) {
+        s = upgradeBuildingRival(s, guildId, auberge.instanceId)
+      }
+    }
+    // Sell excess inventory to accumulate gold
+    const woodNow = rival().inventory['wood'] ?? 0
+    if (woodNow > 10) s = rivalSellToMarket(s, guildId, 'wood', Math.floor(woodNow * 0.6))
+    const pierreNow = rival().inventory['pierre'] ?? 0
+    if (pierreNow > 5) s = rivalSellToMarket(s, guildId, 'pierre', Math.floor(pierreNow * 0.5))
   }
 
   return s
