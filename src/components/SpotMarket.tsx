@@ -6,6 +6,7 @@ import {
 import type { GameState, ResourceId, WonderId, ResourceMarket, GuildId, BuildingId } from '../engine/types'
 import { GUILD_COLORS } from '../engine/types'
 import { previewSell, previewBuy } from '../engine/market'
+import { SAWMILL_PRODUCTION } from '../engine/buildings'
 
 // ─── Phase 0 goal ─────────────────────────────────────────────────────────────
 const PHASE0_WOOD_GOAL = 10
@@ -24,9 +25,10 @@ const RESOURCE_META: Record<ResourceId, {
   chartHex: string
   chartColor: string
   gradientId: string
-  wonderId: WonderId
-  wonderName: string
+  wonderId?: WonderId
+  wonderName?: string
   dumpThreshold: number
+  category: string
 }> = {
   apple: {
     label: 'Pommes',
@@ -37,6 +39,7 @@ const RESOURCE_META: Record<ResourceId, {
     wonderId: 'tower_of_magic',
     wonderName: 'Tour de Magie',
     dumpThreshold: 20,
+    category: 'CONFORT',
   },
   wood: {
     label: 'Bois',
@@ -47,6 +50,25 @@ const RESOURCE_META: Record<ResourceId, {
     wonderId: 'grande_cathedrale',
     wonderName: 'Grande Cathédrale',
     dumpThreshold: 5,
+    category: 'CONSTRUCTION',
+  },
+  pierre: {
+    label: 'Pierre',
+    icon: '🗿',
+    chartHex: '#8a7a60',
+    chartColor: '#a09070',
+    gradientId: 'priceGradientPierre',
+    dumpThreshold: 15,
+    category: 'CONSTRUCTION',
+  },
+  meuble: {
+    label: 'Meuble',
+    icon: '🪑',
+    chartHex: '#9b59b6',
+    chartColor: '#b07ec8',
+    gradientId: 'priceGradientMeuble',
+    dumpThreshold: 5,
+    category: 'CONFORT',
   },
 }
 
@@ -609,14 +631,35 @@ interface Props {
 }
 
 export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }: Props) {
+  const [selectedResource, setSelectedResource] = useState<ResourceId>('wood')
+
   const playerWood  = state.player.inventory['wood'] ?? 0
   const phase0Done  = playerWood >= PHASE0_WOOD_GOAL
-  const woodProgress = Math.min(playerWood / PHASE0_WOOD_GOAL * 100, 100)
 
   const hasScierie    = state.player.buildings.some(b => b.defId === 'sawmill')
   const hasMenuiserie = state.player.buildings.some(b => b.defId === 'menuiserie')
+  const hasCharpenterie = state.player.buildings.some(b => b.defId === 'charpenterie')
   const MENUISERIE_WOOD_COST = 80
   const menuiserieProgress = Math.min(playerWood / MENUISERIE_WOOD_COST * 100, 100)
+
+  // Sawmill level → actual daily production
+  const scierieBuilding = state.player.buildings.find(b => b.defId === 'sawmill')
+  const scierieLevel = scierieBuilding?.level ?? 1
+  const scierieProduction = SAWMILL_PRODUCTION[scierieLevel] ?? 8
+
+  // Active resource tabs
+  const raphActive = !!state.rivalStrategies['raph']
+  const hasPierre = raphActive || (state.player.inventory['pierre'] ?? 0) > 0
+  const hasMeuble = hasCharpenterie || (state.player.inventory['meuble'] ?? 0) > 0
+
+  const activeResources: ResourceId[] = ['wood']
+  if (hasPierre) activeResources.push('pierre')
+  if (hasMeuble) activeResources.push('meuble')
+
+  // Auto-switch to wood if selected resource becomes inactive
+  const effectiveSelected = activeResources.includes(selectedResource) ? selectedResource : 'wood'
+  const meta = RESOURCE_META[effectiveSelected]
+  const wonderId = meta.wonderId
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', padding: 14, gap: 12, minHeight: '100%' }}>
@@ -638,17 +681,47 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
         <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>J{state.day}</span>
       </div>
 
-      {/* ── Wood market card — fixed position, always at top ── */}
+      {/* ── Resource tabs (only when multiple resources active) ── */}
+      {activeResources.length > 1 && (
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          {activeResources.map(rid => {
+            const m = RESOURCE_META[rid]
+            const selected = rid === effectiveSelected
+            return (
+              <button key={rid}
+                onClick={() => setSelectedResource(rid)}
+                style={{
+                  flex: 1,
+                  padding: '5px 4px',
+                  fontSize: '0.75rem',
+                  fontFamily: 'var(--font-ui)',
+                  background: selected ? `${m.chartHex}18` : 'transparent',
+                  border: 'none',
+                  borderBottom: `2px solid ${selected ? m.chartHex : 'transparent'}`,
+                  color: selected ? m.chartColor : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  borderRadius: '4px 4px 0 0',
+                }}
+              >
+                {m.icon} {m.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Resource card ── */}
       <ResourceCard
-        resourceId="wood"
-        resourceMarket={state.market.resources['wood']}
+        resourceId={effectiveSelected}
+        resourceMarket={state.market.resources[effectiveSelected]}
         state={state}
-        onSell={qty => onSell('wood', qty)}
-        onBuy={qty => onBuy('wood', qty)}
-        onContribute={qty => onContribute(qty, 'grande_cathedrale')}
+        onSell={qty => onSell(effectiveSelected, qty)}
+        onBuy={qty => onBuy(effectiveSelected, qty)}
+        onContribute={qty => wonderId ? onContribute(qty, wonderId) : undefined}
       />
 
-      {/* ── Active rumors — below the card so buttons never shift ── */}
+      {/* ── Active rumors ── */}
       {state.activeRumors.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
           {state.activeRumors.slice(-3).map((r, i) => (
@@ -669,36 +742,28 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
         </div>
       )}
 
-      {/* ── Spacer ── */}
       <div style={{ flex: 1 }} />
 
-      {/* ── Phase 0 progression bar (hidden once done) ── */}
+      {/* ── Phase 0 — Objectif 10 bois ── */}
       {!phase0Done && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, flexShrink: 0 }}>
           <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '0.78rem',
-            fontFamily: 'var(--font-mono)',
-            marginBottom: 6,
-            color: 'var(--text-muted)',
+            display: 'flex', justifyContent: 'space-between',
+            fontSize: '0.78rem', fontFamily: 'var(--font-mono)', marginBottom: 6, color: 'var(--text-muted)',
           }}>
             <span>🪵 Objectif Scierie</span>
-            <span style={{ color: 'var(--text-dim)' }}>
-              {playerWood} / {PHASE0_WOOD_GOAL}
-            </span>
+            <span style={{ color: 'var(--text-dim)' }}>{playerWood} / {PHASE0_WOOD_GOAL}</span>
           </div>
           <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
             <div style={{
               height: '100%',
-              width: `${woodProgress}%`,
+              width: `${Math.min(playerWood / PHASE0_WOOD_GOAL * 100, 100)}%`,
               background: 'linear-gradient(90deg, #5a9e6a, #3a6e4a)',
-              borderRadius: 3,
-              transition: 'width 0.4s ease',
+              borderRadius: 3, transition: 'width 0.4s ease',
             }} />
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'center', lineHeight: 1.4 }}>
-            Accumule encore {PHASE0_WOOD_GOAL - playerWood} bois pour construire
+            Encore {PHASE0_WOOD_GOAL - playerWood} bois pour construire
           </div>
         </div>
       )}
@@ -706,13 +771,7 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
       {/* ── Phase 1 — acheter Scierie ── */}
       {phase0Done && !hasScierie && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, flexShrink: 0 }}>
-          <div style={{
-            fontSize: '0.72rem',
-            color: 'var(--accent)',
-            fontFamily: 'var(--font-ui)',
-            letterSpacing: '0.06em',
-            marginBottom: 6,
-          }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--accent)', fontFamily: 'var(--font-ui)', letterSpacing: '0.06em', marginBottom: 6 }}>
             ✦ Scierie débloquée
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 8, lineHeight: 1.4 }}>
@@ -720,12 +779,7 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
           </div>
           <button
             className="btn-primary"
-            style={{
-              width: '100%',
-              fontSize: '0.82rem',
-              padding: '8px 0',
-              opacity: state.player.gold >= 15 ? 1 : 0.55,
-            }}
+            style={{ width: '100%', fontSize: '0.82rem', padding: '8px 0', opacity: state.player.gold >= 15 ? 1 : 0.55 }}
             disabled={state.player.gold < 15}
             onClick={() => onBuyBuilding('sawmill')}
           >
@@ -739,60 +793,72 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
         </div>
       )}
 
-      {/* ── Phase 1 active — Scierie achetée, progression Menuiserie ── */}
+      {/* ── Phase 1 active — Scierie + Menuiserie progression ── */}
       {hasScierie && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, flexShrink: 0 }}>
           <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '0.78rem',
-            fontFamily: 'var(--font-mono)',
-            marginBottom: 6,
-            color: 'var(--success)',
+            display: 'flex', justifyContent: 'space-between',
+            fontSize: '0.78rem', fontFamily: 'var(--font-mono)', marginBottom: 4, color: 'var(--success)',
           }}>
-            <span>🪚 Scierie active</span>
-            <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>+8 🪵/jour</span>
+            <span>🪚 Scierie T{scierieLevel}</span>
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>+{scierieProduction} 🪵/jour</span>
           </div>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '0.75rem',
-            fontFamily: 'var(--font-mono)',
-            marginBottom: 5,
-            color: hasMenuiserie ? 'var(--accent)' : 'var(--text-muted)',
-          }}>
-            <span>🏭 Menuiserie</span>
-            <span style={{ color: hasMenuiserie ? 'var(--success)' : 'var(--text-dim)' }}>
-              {Math.min(playerWood, MENUISERIE_WOOD_COST)} / {MENUISERIE_WOOD_COST} 🪵
-            </span>
-          </div>
-          <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{
-              height: '100%',
-              width: `${menuiserieProgress}%`,
-              background: hasMenuiserie
-                ? 'linear-gradient(90deg, var(--success), #2e7a47)'
-                : 'linear-gradient(90deg, #c9a84c, #8a6e28)',
-              borderRadius: 3,
-              transition: 'width 0.4s ease',
-              boxShadow: hasMenuiserie ? '0 0 8px rgba(76,175,106,0.5)' : undefined,
-            }} />
-          </div>
-          {hasMenuiserie ? (
-            <div style={{ fontSize: '0.72rem', color: 'var(--success)', fontFamily: 'var(--font-mono)', textAlign: 'center' }}>
-              ✓ Menuiserie construite — +35 or/jour
+
+          {!hasMenuiserie && (
+            <>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between',
+                fontSize: '0.75rem', fontFamily: 'var(--font-mono)', marginBottom: 5, color: 'var(--text-muted)',
+              }}>
+                <span>🏭 Menuiserie</span>
+                <span style={{ color: 'var(--text-dim)' }}>
+                  {Math.min(playerWood, MENUISERIE_WOOD_COST)} / {MENUISERIE_WOOD_COST} 🪵
+                </span>
+              </div>
+              <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
+                <div style={{
+                  height: '100%', width: `${menuiserieProgress}%`,
+                  background: 'linear-gradient(90deg, #c9a84c, #8a6e28)',
+                  borderRadius: 3, transition: 'width 0.4s ease',
+                }} />
+              </div>
+              {playerWood >= MENUISERIE_WOOD_COST ? (
+                <button
+                  className="btn-primary"
+                  style={{ width: '100%', fontSize: '0.82rem', padding: '8px 0' }}
+                  onClick={() => onBuyBuilding('menuiserie')}
+                >
+                  🏭 Construire Menuiserie — {MENUISERIE_WOOD_COST} 🪵
+                </button>
+              ) : (
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'center', lineHeight: 1.4 }}>
+                  Encore {MENUISERIE_WOOD_COST - playerWood} 🪵 pour la Menuiserie
+                </div>
+              )}
+            </>
+          )}
+
+          {hasMenuiserie && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>
+                ✓ Menuiserie +35 or/j
+              </div>
+              {hasCharpenterie && (
+                <div style={{ fontSize: '0.72rem', color: '#b07ec8', fontFamily: 'var(--font-mono)' }}>
+                  ✓ Charpenterie +2 🪑/j
+                </div>
+              )}
             </div>
-          ) : playerWood >= MENUISERIE_WOOD_COST ? (
-            <button
-              className="btn-primary"
-              style={{ width: '100%', fontSize: '0.82rem', padding: '8px 0' }}
-              onClick={() => onBuyBuilding('menuiserie')}
-            >
-              🏭 Construire Menuiserie — {MENUISERIE_WOOD_COST} 🪵
-            </button>
-          ) : (
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'center', lineHeight: 1.4 }}>
-              Encore {MENUISERIE_WOOD_COST - playerWood} 🪵 pour la Menuiserie
+          )}
+
+          {/* Phase 2 hint — Charpenterie disponible */}
+          {hasMenuiserie && !hasCharpenterie && (
+            <div style={{
+              marginTop: 8,
+              fontSize: '0.72rem', color: 'var(--accent)', fontFamily: 'var(--font-ui)',
+              letterSpacing: '0.05em', lineHeight: 1.4,
+            }}>
+              ✦ Atelier Charron disponible (Carte → Zone Artisanale)
             </div>
           )}
         </div>

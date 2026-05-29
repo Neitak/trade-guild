@@ -1,6 +1,11 @@
-import type { GameState, BuildingId, GuildState, OwnedBuilding, GameEvent, GuildId } from './types'
+import type { GameState, BuildingId, GuildState, OwnedBuilding, GameEvent, GuildId, ResourceId } from './types'
 import { getRival, updateRival } from './types'
 import buildingDefs from '../data/buildings.json'
+
+// ─── Sawmill upgrade table ────────────────────────────────────────────────────
+// Level → production per day. T1=8, doubles each tier.
+export const SAWMILL_PRODUCTION: Record<number, number> = { 1: 8, 2: 16, 3: 32, 4: 64, 5: 128 }
+const SAWMILL_UPGRADE_COST: Record<number, number> = { 1: 25, 2: 50, 3: 100, 4: 200 }
 
 function getBuildingDef(id: BuildingId) {
   const def = (buildingDefs as any[]).find(b => b.id === id)
@@ -17,29 +22,25 @@ function makeInstanceId(defId: BuildingId, guildId: string): string {
 export function buyBuilding(state: GameState, defId: BuildingId): GameState {
   const def = getBuildingDef(defId)
 
-  // Check gold cost (Tier 1)
   if (def.costGold !== undefined && state.player.gold < def.costGold) return state
 
-  // Check resource cost (Tier 2)
   if (def.costResources) {
     for (const [res, qty] of Object.entries(def.costResources)) {
-      const have = state.player.inventory[res as keyof typeof state.player.inventory] ?? 0
+      const have = state.player.inventory[res as ResourceId] ?? 0
       if (have < (qty as number)) return state
     }
   }
 
   const instanceId = makeInstanceId(defId, 'player')
-  const newBuilding: OwnedBuilding = { defId, instanceId, shares: 100 }
+  const newBuilding: OwnedBuilding = { defId, instanceId, shares: 100, level: 1 }
 
-  // Deduct costs
   let newGold = state.player.gold
   const newInventory = { ...state.player.inventory }
 
   if (def.costGold !== undefined) newGold -= def.costGold
   if (def.costResources) {
     for (const [res, qty] of Object.entries(def.costResources)) {
-      newInventory[res as keyof typeof newInventory] =
-        ((newInventory[res as keyof typeof newInventory] as number) ?? 0) - (qty as number)
+      newInventory[res as ResourceId] = ((newInventory[res as ResourceId] ?? 0)) - (qty as number)
     }
   }
 
@@ -50,7 +51,6 @@ export function buyBuilding(state: GameState, defId: BuildingId): GameState {
     payload: { defId, instanceId, costGold: def.costGold, costResources: def.costResources },
   }
 
-  // Add node to map
   const newMap = addBuildingToMap(state, defId, instanceId, 'player')
 
   return {
@@ -66,22 +66,94 @@ export function buyBuilding(state: GameState, defId: BuildingId): GameState {
   }
 }
 
-// ─── Rival buys a building (internal) ────────────────────────────────────────
+// ─── Player upgrades a building (sawmill T1→T5) ───────────────────────────────
+
+export function upgradeBuilding(state: GameState, instanceId: string): GameState {
+  const building = state.player.buildings.find(b => b.instanceId === instanceId)
+  if (!building) return state
+  const def = getBuildingDef(building.defId)
+  if (!def.upgradable) return state
+
+  const currentLevel = building.level ?? 1
+  const maxLevel = def.maxLevel ?? 5
+  if (currentLevel >= maxLevel) return state
+
+  const cost = SAWMILL_UPGRADE_COST[currentLevel]
+  if (state.player.gold < cost) return state
+
+  const event: GameEvent = {
+    day: state.day,
+    actor: 'player',
+    type: 'UPGRADE_BUILDING',
+    payload: { instanceId, defId: building.defId, fromLevel: currentLevel, toLevel: currentLevel + 1, cost },
+  }
+
+  return {
+    ...state,
+    player: {
+      ...state.player,
+      gold: state.player.gold - cost,
+      buildings: state.player.buildings.map(b =>
+        b.instanceId === instanceId ? { ...b, level: currentLevel + 1 } : b
+      ),
+    },
+    log: [...state.log, event],
+  }
+}
+
+// ─── Rival upgrades a building ────────────────────────────────────────────────
+
+export function upgradeBuildingRival(state: GameState, guildId: GuildId, instanceId: string): GameState {
+  const rival = getRival(state, guildId)
+  const building = rival.buildings.find(b => b.instanceId === instanceId)
+  if (!building) return state
+  const def = getBuildingDef(building.defId)
+  if (!def.upgradable) return state
+
+  const currentLevel = building.level ?? 1
+  const maxLevel = def.maxLevel ?? 5
+  if (currentLevel >= maxLevel) return state
+
+  const cost = SAWMILL_UPGRADE_COST[currentLevel]
+  if (rival.gold < cost) return state
+
+  const event: GameEvent = {
+    day: state.day,
+    actor: guildId,
+    type: 'UPGRADE_BUILDING',
+    payload: { instanceId, defId: building.defId, fromLevel: currentLevel, toLevel: currentLevel + 1, cost },
+  }
+
+  const updatedRival = {
+    ...rival,
+    gold: rival.gold - cost,
+    buildings: rival.buildings.map(b =>
+      b.instanceId === instanceId ? { ...b, level: currentLevel + 1 } : b
+    ),
+  }
+
+  return {
+    ...updateRival(state, updatedRival),
+    log: [...state.log, event],
+  }
+}
+
+// ─── Rival buys a building ────────────────────────────────────────────────────
 
 export function rivalBuyBuilding(state: GameState, guildId: GuildId, defId: BuildingId): GameState {
-  const def   = getBuildingDef(defId)
+  const def = getBuildingDef(defId)
   const rival = getRival(state, guildId)
 
   if (def.costGold !== undefined && rival.gold < def.costGold) return state
   if (def.costResources) {
     for (const [res, qty] of Object.entries(def.costResources)) {
-      const have = rival.inventory[res as keyof typeof rival.inventory] ?? 0
+      const have = rival.inventory[res as ResourceId] ?? 0
       if (have < (qty as number)) return state
     }
   }
 
   const instanceId = makeInstanceId(defId, guildId)
-  const newBuilding: OwnedBuilding = { defId, instanceId, shares: 100 }
+  const newBuilding: OwnedBuilding = { defId, instanceId, shares: 100, level: 1 }
 
   let newGold = rival.gold
   const newInventory = { ...rival.inventory }
@@ -89,8 +161,7 @@ export function rivalBuyBuilding(state: GameState, guildId: GuildId, defId: Buil
   if (def.costGold !== undefined) newGold -= def.costGold
   if (def.costResources) {
     for (const [res, qty] of Object.entries(def.costResources)) {
-      newInventory[res as keyof typeof newInventory] =
-        ((newInventory[res as keyof typeof newInventory] as number) ?? 0) - (qty as number)
+      newInventory[res as ResourceId] = ((newInventory[res as ResourceId] ?? 0)) - (qty as number)
     }
   }
 
@@ -124,7 +195,7 @@ function addBuildingToMap(
 ): typeof state.map {
   let assigned = false
   const nodes = state.map.nodes.map(node => {
-    if (!assigned && node.buildingDefId === defId && !node.ownedBy) {
+    if (!assigned && node.buildingDefId === defId && !node.ownedBy && !node.locked) {
       assigned = true
       return { ...node, ownedBy: owner, buildingInstanceId: instanceId }
     }
@@ -133,75 +204,155 @@ function addBuildingToMap(
   return { nodes }
 }
 
-// ─── Production (called at end of day) ───────────────────────────────────────
+// ─── Production (end of day) ──────────────────────────────────────────────────
 
 export function produceResources(state: GameState): GameState {
   let s = state
 
-  // Player buildings
-  for (const building of s.player.buildings) {
+  s = applyGuildProduction(s, 'player')
+
+  for (const rival of s.rivals) {
+    s = applyGuildProduction(s, rival.id)
+  }
+
+  return s
+}
+
+function applyGuildProduction(state: GameState, guildId: GuildId): GameState {
+  const isPlayer = guildId === 'player'
+  const guild = isPlayer ? state.player : getRival(state, guildId)
+  let s = state
+
+  for (const building of guild.buildings) {
     const def = getBuildingDef(building.defId)
-    if (def.produces && def.productionPerDay > 0) {
-      const degradation = building.degradation ?? 0
-      const produced = Math.round(def.productionPerDay * (building.shares / 100) * (1 - degradation))
-      const event: GameEvent = {
-        day: s.day,
-        actor: 'player',
-        type: 'PRODUCTION',
-        payload: { buildingId: building.defId, resource: def.produces, qty: produced, degradation },
-      }
-      s = {
-        ...s,
-        player: {
-          ...s.player,
-          inventory: {
-            ...s.player.inventory,
-            [def.produces]: (s.player.inventory[def.produces as keyof typeof s.player.inventory] ?? 0) + produced,
-          },
-        },
-        log: [...s.log, event],
-      }
+
+    // ── Atelier auto-consume (e.g. Charpenterie: wood → meuble) ──────────────
+    if (def.autoConsumeInput && def.produces) {
+      s = applyAtelierProduction(s, guildId, building, def)
+      continue
     }
 
-    // Tier 2: generate gold revenue
+    // ── Standard Tier 1 producer ──────────────────────────────────────────────
+    if (def.produces && def.productionPerDay > 0) {
+      const degradation = building.degradation ?? 0
+      const level = building.level ?? 1
+      const levelBonus = def.upgradable ? (SAWMILL_PRODUCTION[level] / SAWMILL_PRODUCTION[1]) : 1
+      const produced = Math.round(def.productionPerDay * levelBonus * (building.shares / 100) * (1 - degradation))
+
+      const event: GameEvent = {
+        day: s.day,
+        actor: guildId,
+        type: 'PRODUCTION',
+        payload: { buildingId: building.defId, resource: def.produces, qty: produced, degradation, level },
+      }
+
+      const currentGuild = isPlayer ? s.player : getRival(s, guildId)
+      const updatedGuild = {
+        ...currentGuild,
+        inventory: {
+          ...currentGuild.inventory,
+          [def.produces]: (currentGuild.inventory[def.produces as ResourceId] ?? 0) + produced,
+        },
+      }
+
+      s = isPlayer
+        ? { ...s, player: updatedGuild as typeof s.player, log: [...s.log, event] }
+        : { ...updateRival(s, updatedGuild), log: [...s.log, event] }
+    }
+
+    // ── Tier 2 revenue ────────────────────────────────────────────────────────
     if (def.revenuePerDay && def.tier === 2) {
       const rev = Math.round(def.revenuePerDay * (building.shares / 100))
       const event: GameEvent = {
         day: s.day,
-        actor: 'player',
+        actor: guildId,
         type: 'REVENUE',
         payload: { buildingId: building.defId, gold: rev },
       }
-      s = {
-        ...s,
-        player: { ...s.player, gold: s.player.gold + rev },
-        log: [...s.log, event],
-      }
+
+      const currentGuild = isPlayer ? s.player : getRival(s, guildId)
+      const updatedGuild = { ...currentGuild, gold: currentGuild.gold + rev }
+
+      s = isPlayer
+        ? { ...s, player: updatedGuild as typeof s.player, log: [...s.log, event] }
+        : { ...updateRival(s, updatedGuild), log: [...s.log, event] }
     }
   }
 
-  // All rivals' buildings
-  for (const rival of s.rivals) {
-    let updatedRival = { ...rival }
-    for (const building of rival.buildings) {
-      const def = getBuildingDef(building.defId)
-      if (def.produces && def.productionPerDay > 0) {
-        const degradation = building.degradation ?? 0
-        const produced = Math.round(def.productionPerDay * (building.shares / 100) * (1 - degradation))
-        updatedRival = {
-          ...updatedRival,
-          inventory: {
-            ...updatedRival.inventory,
-            [def.produces]: (updatedRival.inventory[def.produces as keyof typeof updatedRival.inventory] ?? 0) + produced,
-          },
-        }
+  return s
+}
+
+// ─── Atelier production (auto-consume input → produce output) ─────────────────
+// Priority: inventory first, then buy from market, else stop.
+
+function applyAtelierProduction(
+  state: GameState,
+  guildId: GuildId,
+  building: OwnedBuilding,
+  def: any
+): GameState {
+  const isPlayer = guildId === 'player'
+  const inputId = def.autoConsumeInput as ResourceId
+  const inputQty = (def.autoConsumeQty as number) ?? 1
+  const outputId = def.produces as ResourceId
+  const outputQty = Math.round((def.productionPerDay as number) * (building.shares / 100))
+
+  if (outputQty <= 0) return state
+
+  const guild = isPlayer ? state.player : getRival(state, guildId)
+  const haveInput = guild.inventory[inputId] ?? 0
+
+  let s = state
+
+  if (haveInput >= inputQty) {
+    // Consume from inventory — free run
+    const updatedGuild = {
+      ...guild,
+      inventory: {
+        ...guild.inventory,
+        [inputId]: haveInput - inputQty,
+        [outputId]: (guild.inventory[outputId] ?? 0) + outputQty,
+      },
+    }
+    s = isPlayer
+      ? { ...s, player: updatedGuild as typeof s.player }
+      : updateRival(s, updatedGuild)
+  } else {
+    // Try to buy input from market
+    const marketEntry = s.market.resources[inputId]
+    if (!marketEntry) return state
+
+    const cost = inputQty * marketEntry.currentPrice
+    const canAfford = guild.gold >= cost && marketEntry.volumeAvailable >= inputQty
+
+    if (canAfford) {
+      const newPrice = marketEntry.currentPrice * (1 + marketEntry.elasticityK * (inputQty / Math.max(marketEntry.volumeAvailable, 1)))
+      const updatedGuild = {
+        ...guild,
+        gold: guild.gold - cost,
+        inventory: {
+          ...guild.inventory,
+          [outputId]: (guild.inventory[outputId] ?? 0) + outputQty,
+        },
       }
-      if (def.revenuePerDay && def.tier === 2) {
-        const rev = Math.round(def.revenuePerDay * (building.shares / 100))
-        updatedRival = { ...updatedRival, gold: updatedRival.gold + rev }
+      s = isPlayer
+        ? { ...s, player: updatedGuild as typeof s.player }
+        : updateRival(s, updatedGuild)
+      s = {
+        ...s,
+        market: {
+          resources: {
+            ...s.market.resources,
+            [inputId]: {
+              ...marketEntry,
+              currentPrice: newPrice,
+              volumeAvailable: marketEntry.volumeAvailable - inputQty,
+            },
+          },
+        },
       }
     }
-    if (updatedRival !== rival) s = updateRival(s, updatedRival)
+    // else: Atelier stops cleanly — no output, no debt
   }
 
   return s

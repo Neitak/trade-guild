@@ -1,22 +1,30 @@
 // ─── Resources & Buildings ───────────────────────────────────────────────────
 
-export type ResourceId = 'apple' | 'wood'
+export type ResourceId = 'apple' | 'wood' | 'pierre' | 'meuble'
 
-export type BuildingId = 'orchard' | 'fruit_market' | 'sawmill' | 'menuiserie'
+export type ResourceCategory = 'CONSTRUCTION' | 'CONFORT' | 'LUXE'
+
+export type BuildingId = 'orchard' | 'fruit_market' | 'sawmill' | 'menuiserie' | 'charpenterie' | 'carriere'
 
 export type WonderId = 'tower_of_magic' | 'grande_cathedrale'
 
-export type BuildingTier = 1 | 2
+export type BuildingTier = 1 | 2 | 3
+export type BuildingZone = 'champs' | 'artisanale' | 'capitale'
 
 export interface BuildingDef {
   id: BuildingId
   name: string
   tier: BuildingTier
+  zone?: BuildingZone
   costGold?: number
   costResources?: Partial<Record<ResourceId, number>>
   produces?: ResourceId
   productionPerDay: number
-  revenuePerDay?: number // Tier 2 only — gold per day based on stock
+  revenuePerDay?: number       // Tier 2 — gold/day
+  autoConsumeInput?: ResourceId // Atelier: consumes this resource each day
+  autoConsumeQty?: number       // Atelier: units consumed per day
+  upgradable?: boolean          // can be leveled up (sawmill T1→T5)
+  maxLevel?: number
 }
 
 // ─── Guild IDs ────────────────────────────────────────────────────────────────
@@ -44,6 +52,7 @@ export type GameEventType =
   | 'SELL'
   | 'BUY'
   | 'BUY_BUILDING'
+  | 'UPGRADE_BUILDING'
   | 'BUY_SHARE'
   | 'SELL_SHARE'
   | 'END_DAY'
@@ -55,6 +64,7 @@ export type GameEventType =
   | 'REVENUE'
   | 'GAME_OVER'
   | 'NODE_UNLOCKED'
+  | 'RIVAL_JOINED'
 
 export interface GameEvent {
   day: number
@@ -100,7 +110,8 @@ export interface OwnedBuilding {
   defId: BuildingId
   instanceId: string
   shares: number // percentage owned by this guild (0–100)
-  degradation?: number // 0.0 → 0.4 — Tier 1 extractors only, reduces production over time
+  degradation?: number // 0.0 → 0.4 — Tier 1 extractors only
+  level?: number        // 1–5 for upgradable buildings (default 1)
 }
 
 export interface GuildState {
@@ -133,12 +144,13 @@ export interface MapNode {
   label: string
   x: number
   y: number
+  zone?: BuildingZone
   type: 'resource' | 'commercial' | 'wonder'
   resourceId?: ResourceId
   buildingDefId?: BuildingId
   ownedBy?: GuildId
   buildingInstanceId?: string
-  locked?: boolean // true = not yet available, unlocks via narrative condition
+  locked?: boolean
 }
 
 export interface MapState {
@@ -172,21 +184,28 @@ export type GamePhase = 'playing' | 'won' | 'lost'
 
 // ─── Full Game State ──────────────────────────────────────────────────────────
 
+export interface RivalStrategy {
+  preferredResource: ResourceId
+  pumpPhase?: 'idle' | 'pumping' | 'dumping'
+  pumpStartDay?: number
+  pumpCooldownDay?: number
+}
+
 export interface GameState {
   day: number
-  tick: number              // absolute tick since game start
-  tickOfDay: number         // 0..TICKS_PER_DAY-1, resets each day
+  tick: number
+  tickOfDay: number
   phase: GamePhase
-  scenario: string          // opening sentence
+  scenario: string
   player: GuildState
-  rivals: GuildState[]      // Phase 0: [brice] — Raph joins Phase 1
+  rivals: GuildState[]
   market: MarketState
   map: MapState
   log: GameEvent[]
   pendingRumors: PendingRumor[]
   activeRumors: ActiveRumor[]
   wonders: WonderProgress[]
-  rivalStrategies: Partial<Record<GuildId, { preferredResource: ResourceId }>>
+  rivalStrategies: Partial<Record<GuildId, RivalStrategy>>
   shareRegistry: ShareOwnership[]
   pendingMarketEvents: PendingMarketEvent[]
   activeMarketEvents: ActiveMarketEvent[]

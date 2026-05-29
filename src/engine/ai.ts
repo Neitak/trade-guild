@@ -1,22 +1,24 @@
-import type { GameState, BuildingId, ResourceId, WonderId, GuildId } from './types'
+import type { GameState, BuildingId, ResourceId, WonderId, GuildId, RivalStrategy } from './types'
 import { getRival, updateRival } from './types'
 import { rivalBuyFromMarket, rivalSellToMarket } from './market'
-import { rivalBuyBuilding } from './buildings'
+import { rivalBuyBuilding, upgradeBuildingRival } from './buildings'
 
 // ─── Generic rival decision tree ─────────────────────────────────────────────
 
 export function runRivalAI(state: GameState, guildId: GuildId): GameState {
   let s = state
   const strategy = s.rivalStrategies[guildId]
-  if (!strategy) return s
+  if (!strategy) return s   // inactive rival — no strategy assigned yet
 
   if (strategy.preferredResource === 'apple') {
     s = runAppleStrategy(s, guildId)
+  } else if (strategy.preferredResource === 'pierre') {
+    s = runPierreStrategy(s, guildId)
   } else {
     s = runWoodStrategy(s, guildId)
   }
 
-  // Buyback shares player stole — defensive
+  // Defensive: buyback shares player stole
   const rival = getRival(s, guildId)
   const stolenBuilding = s.player.buildings.find(pb =>
     rival.buildings.some(rb => rb.instanceId === pb.instanceId)
@@ -28,12 +30,24 @@ export function runRivalAI(state: GameState, guildId: GuildId): GameState {
   return s
 }
 
-/** Backward compat for direct callers */
 export const runBriceAI = (state: GameState) => runRivalAI(state, 'brice')
 /** @deprecated */
 export const runTexAI = runBriceAI
 
-// ─── Apple filière: Orchard → Fruit Market → Tour de Magie ───────────────────
+// ─── Helper to update a strategy without clobbering other fields ─────────────
+
+function setStrategy(state: GameState, guildId: GuildId, patch: Partial<RivalStrategy>): GameState {
+  const prev = state.rivalStrategies[guildId] ?? { preferredResource: 'wood' }
+  return {
+    ...state,
+    rivalStrategies: {
+      ...state.rivalStrategies,
+      [guildId]: { ...prev, ...patch },
+    },
+  }
+}
+
+// ─── Apple filière ────────────────────────────────────────────────────────────
 
 function runAppleStrategy(state: GameState, guildId: GuildId): GameState {
   let s = state
@@ -88,17 +102,40 @@ function runAppleStrategy(state: GameState, guildId: GuildId): GameState {
   return s
 }
 
-// ─── Wood filière: Scierie → Menuiserie → Grande Cathédrale ──────────────────
+// ─── Wood filière + Pump & Dump (Brice) ──────────────────────────────────────
+// Phase 1: buy sawmill → accumulate for menuiserie
+// Phase 2: pump & dump once established → 4ème sensation "je me suis fait avoir"
 
 function runWoodStrategy(state: GameState, guildId: GuildId): GameState {
   let s = state
   const rival = () => getRival(s, guildId)
+  const strategy = () => s.rivalStrategies[guildId]!
 
+  // ── Buy sawmill ──────────────────────────────────────────────────────────
   const hasSawmill = rival().buildings.some(b => b.defId === 'sawmill')
   if (!hasSawmill && rival().gold >= 15) {
     s = rivalBuyBuilding(s, guildId, 'sawmill')
+    // Unlock scierie_slot_2 immediately when first sawmill is built
+    s = unlockNodeImmediate(s, 'scierie_slot_2',
+      `Les bûcherons affluent — la Scierie des Hauteurs est désormais disponible.`)
   }
 
+  // ── Upgrade sawmill (Brice competes for higher production) ───────────────
+  if (hasSawmill && s.day >= 5) {
+    const sawmill = rival().buildings.find(b => b.defId === 'sawmill')
+    if (sawmill) {
+      const level = sawmill.level ?? 1
+      const upgradeCosts: Record<number, number> = { 1: 25, 2: 50, 3: 100, 4: 200 }
+      if (level < 5 && rival().gold >= (upgradeCosts[level] ?? 999)) {
+        // Brice upgrades every 4 days to create a believable progression
+        if (s.day % 4 === 0) {
+          s = upgradeBuildingRival(s, guildId, sawmill.instanceId)
+        }
+      }
+    }
+  }
+
+  // ── Accumulate wood for menuiserie ───────────────────────────────────────
   const hasMenuiserie = rival().buildings.some(b => b.defId === 'menuiserie')
   const wood = rival().inventory['wood'] ?? 0
   if (hasSawmill && !hasMenuiserie && wood < 80 && rival().gold > 60) {
@@ -112,6 +149,13 @@ function runWoodStrategy(state: GameState, guildId: GuildId): GameState {
     s = rivalBuyBuilding(s, guildId, 'menuiserie')
   }
 
+  // ── Pump & Dump — after Phase 1 established (menuiserie owned, day > 10) ──
+  if (hasMenuiserie && s.day > 10) {
+    s = runPumpDump(s, guildId)
+    return s  // skip normal profit-taking when pump/dump active
+  }
+
+  // ── Normal profit-taking (pre-Phase 2) ───────────────────────────────────
   const woodMarket = s.market.resources['wood']
   const woodNow = rival().inventory['wood'] ?? 0
   if (woodMarket.currentPrice > woodMarket.equilibriumPrice * 1.10 && woodNow > 15) {
@@ -119,18 +163,138 @@ function runWoodStrategy(state: GameState, guildId: GuildId): GameState {
     if (qty > 0) s = rivalSellToMarket(s, guildId, 'wood', qty)
   }
 
-  const cathedrale = s.wonders.find(w => w.id === 'grande_cathedrale')
-  if (cathedrale && !cathedrale.complete) {
-    const contributed = cathedrale.rivalContributed[guildId]?.['wood'] ?? 0
-    const needed = (cathedrale.requiredResources['wood'] ?? 0) - contributed
-    const stock = rival().inventory['wood'] ?? 0
-    if (needed > 0 && stock >= 20 && s.day >= 8) {
-      const qty = Math.max(0, Math.min(stock - 10, needed))
-      if (qty > 0) s = contributeToWonderRival(s, guildId, 'grande_cathedrale', qty)
+  // ── Wonder contribution ───────────────────────────────────────────────────
+  s = tryContributeWonder(s, guildId, 'grande_cathedrale', 'wood', 20, 10)
+
+  return s
+}
+
+// ─── Pump & Dump sub-routine ──────────────────────────────────────────────────
+
+function runPumpDump(state: GameState, guildId: GuildId): GameState {
+  let s = state
+  const rival = () => getRival(s, guildId)
+  const strategy = () => s.rivalStrategies[guildId]!
+  const woodMarket = s.market.resources['wood']
+  const woodNow = rival().inventory['wood'] ?? 0
+  const phase = strategy().pumpPhase ?? 'idle'
+  const cooldownDay = strategy().pumpCooldownDay ?? 0
+
+  if (s.day < cooldownDay) return s  // on cooldown
+
+  if (phase === 'idle') {
+    // Start pumping when price is near equilibrium and Brice has gold
+    if (woodMarket.currentPrice < woodMarket.equilibriumPrice * 1.08 && rival().gold >= 50) {
+      const qty = Math.min(30, woodMarket.volumeAvailable, Math.floor(rival().gold * 0.55))
+      if (qty >= 8) {
+        s = rivalBuyFromMarket(s, guildId, 'wood', qty)
+        s = setStrategy(s, guildId, { pumpPhase: 'pumping', pumpStartDay: s.day })
+      }
     }
+  } else if (phase === 'pumping') {
+    // Keep buying to push price up
+    if (woodMarket.currentPrice < woodMarket.equilibriumPrice * 1.30 && rival().gold >= 25) {
+      const qty = Math.min(20, woodMarket.volumeAvailable, Math.floor(rival().gold * 0.40))
+      if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'wood', qty)
+    }
+    // Trigger dump: price is high enough OR player bought into the pump
+    const pumpDays = s.day - (strategy().pumpStartDay ?? s.day)
+    const playerWood = s.player.inventory['wood'] ?? 0
+    if (
+      woodMarket.currentPrice > woodMarket.equilibriumPrice * 1.35 ||
+      (pumpDays >= 3 && playerWood >= 15) ||
+      pumpDays >= 5
+    ) {
+      s = setStrategy(s, guildId, { pumpPhase: 'dumping' })
+    }
+  } else if (phase === 'dumping') {
+    // Dump everything — crash the price
+    const toDump = Math.floor(woodNow * 0.85)
+    if (toDump > 0) {
+      s = rivalSellToMarket(s, guildId, 'wood', toDump)
+    }
+    // Back to idle with cooldown (5-8 days before next pump)
+    s = setStrategy(s, guildId, {
+      pumpPhase: 'idle',
+      pumpCooldownDay: s.day + 5 + Math.floor(Math.random() * 4),
+    })
+    // Wonder contribution after dump — Brice converts profits to wonder
+    s = tryContributeWonder(s, guildId, 'grande_cathedrale', 'wood', 20, 10)
   }
 
   return s
+}
+
+// ─── Pierre filière (Raph) ────────────────────────────────────────────────────
+
+function runPierreStrategy(state: GameState, guildId: GuildId): GameState {
+  let s = state
+  const rival = () => getRival(s, guildId)
+
+  // Buy carriere when node is available
+  const hasCarriere = rival().buildings.some(b => b.defId === 'carriere')
+  const carriereAvailable = s.map.nodes.some(n => n.buildingDefId === 'carriere' && !n.locked && !n.ownedBy)
+  if (!hasCarriere && carriereAvailable && rival().gold >= 20) {
+    s = rivalBuyBuilding(s, guildId, 'carriere')
+  }
+
+  const pierre = rival().inventory['pierre'] ?? 0
+  const pierreMarket = s.market.resources['pierre']
+
+  // Profit-taking: sell when price > 115% equilibrium
+  if (pierre > 20 && pierreMarket.currentPrice > pierreMarket.equilibriumPrice * 1.15) {
+    const qty = Math.floor(pierre * 0.45)
+    if (qty > 0) s = rivalSellToMarket(s, guildId, 'pierre', qty)
+  }
+
+  // Opportunistic accumulation
+  if (pierre < 30 && pierreMarket.currentPrice < pierreMarket.equilibriumPrice * 0.90 && rival().gold >= 30) {
+    const qty = Math.min(15, pierreMarket.volumeAvailable, Math.floor(rival().gold * 0.2))
+    if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'pierre', qty)
+  }
+
+  return s
+}
+
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+
+function tryContributeWonder(
+  state: GameState,
+  guildId: GuildId,
+  wonderId: WonderId,
+  resourceId: ResourceId,
+  minStock: number,
+  minDay: number
+): GameState {
+  if (state.day < minDay) return state
+  const wonder = state.wonders.find(w => w.id === wonderId)
+  if (!wonder || wonder.complete) return state
+
+  const contributed = wonder.rivalContributed[guildId]?.[resourceId] ?? 0
+  const needed = (wonder.requiredResources[resourceId] ?? 0) - contributed
+  const stock = getRival(state, guildId).inventory[resourceId] ?? 0
+
+  if (needed > 0 && stock >= minStock) {
+    const qty = Math.max(0, Math.min(stock - Math.floor(minStock * 0.5), needed))
+    if (qty > 0) return contributeToWonderRival(state, guildId, wonderId, qty)
+  }
+  return state
+}
+
+function unlockNodeImmediate(state: GameState, nodeId: string, message: string): GameState {
+  const node = state.map.nodes.find(n => n.id === nodeId)
+  if (!node || !node.locked) return state
+
+  return {
+    ...state,
+    map: {
+      nodes: state.map.nodes.map(n => n.id === nodeId ? { ...n, locked: false } : n),
+    },
+    activeRumors: [
+      ...state.activeRumors,
+      { day: state.day, text: `📍 ${message}` },
+    ],
+  }
 }
 
 // ─── Wonder contribution (rival) ─────────────────────────────────────────────
@@ -183,9 +347,8 @@ function rivalBuyBackShare(state: GameState, guildId: GuildId, instanceId: strin
   const playerBuilding = state.player.buildings.find(b => b.instanceId === instanceId)
   if (!playerBuilding || playerBuilding.shares <= 0) return state
 
-  const def = (import.meta as any).glob ? null : null  // eslint-disable-line
   const STEP = 10
-  const cost = Math.max(5, STEP * 3)  // simplified cost for buyback
+  const cost = Math.max(5, STEP * 3)
   if (rival.gold < cost) return state
 
   const transferred = Math.min(STEP, playerBuilding.shares)

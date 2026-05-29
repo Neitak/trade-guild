@@ -15,24 +15,27 @@ export function resolveEndOfDay(state: GameState): GameState {
   // 1. Reveal any pending rumors due today
   s = revealDueRumors(s)
 
-  // 2. Produce resources from all buildings
+  // 2. Activate Raph when player buys sawmill (Phase 1 trigger)
+  s = maybeActivateRaph(s)
+
+  // 3. Produce resources from all buildings
   s = produceResources(s)
 
-  // 2b. Degrade Tier 1 extractors (progressive slowdown)
+  // 3b. Degrade Tier 1 extractors
   s = degradeBuildings(s)
 
-  // 3. Run all rivals AI
+  // 4. Run all rivals AI
   for (const rival of s.rivals) {
     s = runRivalAI(s, rival.id)
   }
 
-  // 4. Queue new rumors based on what rivals did today (only tex for flavor text)
+  // 5. Queue new rumors from rival actions
   s = generateRumors(s)
 
-  // 5. Unlock nodes narratively (new slots when economy develops)
+  // 6. Unlock new map nodes narratively
   s = unlockNodes(s)
 
-  // 6. Price recovery + daily snapshot for all resource charts
+  // 7. Price recovery + daily snapshot
   s = { ...s, market: recoverPrices(s) }
   s = recordDailyPriceSnapshot(s)
 
@@ -122,11 +125,14 @@ function recordDailyPriceSnapshot(state: GameState): GameState {
 }
 
 function updateNetWorth(state: GameState): GameState {
-  const applePrice = state.market.resources['apple'].currentPrice
-  const woodPrice  = state.market.resources['wood'].currentPrice
+  const prices = Object.fromEntries(
+    Object.entries(state.market.resources).map(([id, r]) => [id, r.currentPrice])
+  ) as Partial<Record<ResourceId, number>>
 
   function worth(g: { gold: number; inventory: Partial<Record<ResourceId, number>> }): number {
-    return g.gold + (g.inventory['apple'] ?? 0) * applePrice + (g.inventory['wood'] ?? 0) * woodPrice
+    return g.gold + Object.entries(g.inventory).reduce((sum, [id, qty]) =>
+      sum + (qty ?? 0) * (prices[id as ResourceId] ?? 0), 0
+    )
   }
 
   const updatedRivals = state.rivals.map(r => ({
@@ -210,28 +216,71 @@ function degradeBuildings(state: GameState): GameState {
   }
 }
 
+// ─── Raph activation (Phase 1 trigger) ───────────────────────────────────────
+
+function maybeActivateRaph(state: GameState): GameState {
+  if (state.rivalStrategies['raph']) return state   // already active
+  if (!state.player.buildings.some(b => b.defId === 'sawmill')) return state
+
+  return {
+    ...state,
+    rivalStrategies: {
+      ...state.rivalStrategies,
+      raph: { preferredResource: 'pierre' },
+    },
+    activeRumors: [
+      ...state.activeRumors,
+      { day: state.day, text: `📍 Raph arrive en ville avec 60 pièces d'or et un œil sur la Carrière du Vallon.` },
+    ],
+    log: [
+      ...state.log,
+      { day: state.day, actor: 'system' as const, type: 'RIVAL_JOINED' as const, payload: { guildId: 'raph' } },
+    ],
+  }
+}
+
 // ─── Apparition narrative des nouveaux emplacements ──────────────────────────
-// Les slot_2 se débloquent quand l'économie le justifie.
 
 function unlockNodes(state: GameState): GameState {
   const allBuildings = [...state.player.buildings, ...state.rivals.flatMap(r => r.buildings)]
+  const raphActive = !!state.rivalStrategies['raph']
 
   const UNLOCK_CONDITIONS: Record<string, { condition: () => boolean; message: string }> = {
-    orchard_slot_2: {
-      condition: () => state.day >= 8 && allBuildings.some(b => b.defId === 'orchard'),
-      message: `L'économie s'anime — de nouveaux cultivateurs arrivent au Verger des Collines.`,
+    // Apple filière
+    orchard_slot_1: {
+      condition: () => state.day >= 5,
+      message: `Des cultivateurs arrivent en ville — le Verger du Vallon est disponible.`,
     },
-    scierie_slot_2: {
-      condition: () => state.day >= 8 && allBuildings.some(b => b.defId === 'sawmill'),
-      message: `Les bûcherons affluent en ville — la Scierie des Hauteurs est désormais disponible.`,
+    orchard_slot_2: {
+      condition: () => allBuildings.some(b => b.defId === 'orchard'),
+      message: `L'économie s'anime — le Verger des Collines est désormais accessible.`,
+    },
+    market_slot_1: {
+      condition: () => allBuildings.some(b => b.defId === 'orchard'),
+      message: `Un premier verger en activité — la Place du Marché s'anime.`,
     },
     market_slot_2: {
       condition: () => allBuildings.some(b => b.defId === 'fruit_market'),
-      message: `Le commerce des fruits prospère — un nouveau carrefour marchand s'ouvre au Carrefour Nord.`,
+      message: `Le commerce des fruits prospère — le Carrefour Nord ouvre ses portes.`,
     },
+    // Wood filière — scierie_slot_2 unlocked immediately in ai.ts when sawmill bought
     menuiserie_slot_2: {
       condition: () => allBuildings.some(b => b.defId === 'menuiserie'),
       message: `L'artisanat du bois attire de nouveaux maîtres — la Grande Menuiserie ouvre ses portes.`,
+    },
+    // Pierre filière (Raph)
+    carriere_slot_1: {
+      condition: () => raphActive,
+      message: `Raph lance les travaux — la Carrière du Vallon est ouverte à la concurrence.`,
+    },
+    carriere_slot_2: {
+      condition: () => allBuildings.some(b => b.defId === 'carriere'),
+      message: `L'extraction de pierre s'intensifie — la Carrière du Nord est disponible.`,
+    },
+    // Artisanale — Charpenterie unlocks once player has menuiserie
+    charpenterie_slot_1: {
+      condition: () => state.player.buildings.some(b => b.defId === 'menuiserie'),
+      message: `Votre Menuiserie est construite — l'Atelier Charron cherche un acquéreur dans la zone artisanale.`,
     },
   }
 

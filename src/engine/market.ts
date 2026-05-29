@@ -1,11 +1,15 @@
 import type { GameState, GameEvent, ResourceId, MarketState, ResourceMarket, BuildingId, GuildId } from './types'
 import { getRival, updateRival } from './types'
 
-const APPLE_PRODUCERS: BuildingId[] = ['orchard']
-const WOOD_PRODUCERS:  BuildingId[] = ['sawmill']
+const PRODUCERS: Partial<Record<ResourceId, BuildingId[]>> = {
+  apple:  ['orchard'],
+  wood:   ['sawmill'],
+  pierre: ['carriere'],
+  meuble: [],   // produced by Atelier, not a raw extractor
+}
 
 function producerDefsFor(id: ResourceId): BuildingId[] {
-  return id === 'apple' ? APPLE_PRODUCERS : WOOD_PRODUCERS
+  return PRODUCERS[id] ?? []
 }
 
 // ─── Phase 0 tutorial state machine ──────────────────────────────────────────

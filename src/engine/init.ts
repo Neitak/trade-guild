@@ -6,31 +6,46 @@ import wonderDefs from '../data/wonders.json'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 // DEV SPEED: 30 ticks × 1s = 30s/day
-// PROD TARGET: 1 day = 24h real-time → TICKS_PER_DAY = 86400 (1 tick/s) or equivalent
 export const TICKS_PER_DAY = 30
 
-// ─── Map layout — bois filière (right) + 2 wonders (center) ──────────────────
-// Apple nodes kept in map for Phase 1+ but grayed — won't be interactable in Phase 0
+// ─── Map layout — 3 zones ─────────────────────────────────────────────────────
+//
+//  SVG 720×460
+//  ┌──────────────────── CAPITALE (y 0-115) ─────────────────────────┐
+//  │            Tour de Magie          Grande Cathédrale              │
+//  ├──────────────────── ARTISANALE (y 130-245) ─────────────────────┤
+//  │  Charpenterie   Marché aux fruits   Menuiserie (×2)             │
+//  ├──────────────────── CHAMPS & EXTRACTION (y 260-460) ────────────┤
+//  │  Verger (×2)    Carrière (×2, Raph) Scierie (×2, Brice)        │
+//  └─────────────────────────────────────────────────────────────────┘
+
 const MAP_NODES: MapNode[] = [
-  // Apple filière (left) — locked until Phase 1 (building unlocks market)
-  { id: 'orchard_slot_1',    label: 'Verger du Vallon',       x: 100, y: 90,  type: 'resource',   buildingDefId: 'orchard',     locked: true },
-  { id: 'orchard_slot_2',    label: 'Verger des Collines',    x: 215, y: 50,  type: 'resource',   buildingDefId: 'orchard',     locked: true },
-  { id: 'market_slot_1',     label: 'Place du Marché',        x: 145, y: 215, type: 'commercial', buildingDefId: 'fruit_market', locked: true },
-  { id: 'market_slot_2',     label: 'Carrefour Nord',         x:  55, y: 275, type: 'commercial', buildingDefId: 'fruit_market', locked: true },
-  // Wonders (center)
-  { id: 'wonder_slot',       label: 'Tour de Magie',          x: 365, y:  90, type: 'wonder' },
-  { id: 'cathedrale_slot',   label: 'Grande Cathédrale',      x: 365, y: 265, type: 'wonder' },
-  // Wood filière (right) — slot_1 available, slot_2 locked
-  { id: 'scierie_slot_1',    label: 'Scierie du Bois Neuf',   x: 540, y: 75,  type: 'resource',   buildingDefId: 'sawmill' },
-  { id: 'scierie_slot_2',    label: 'Scierie des Hauteurs',   x: 650, y: 125, type: 'resource',   buildingDefId: 'sawmill',     locked: true },
-  { id: 'menuiserie_slot_1', label: 'Atelier du Bois',        x: 575, y: 215, type: 'commercial', buildingDefId: 'menuiserie' },
-  { id: 'menuiserie_slot_2', label: 'Grande Menuiserie',      x: 660, y: 280, type: 'commercial', buildingDefId: 'menuiserie',  locked: true },
+  // ── Zone Capitale ──────────────────────────────────────────────────
+  { id: 'wonder_slot',       zone: 'capitale', label: 'Tour de Magie',        x: 230, y: 68, type: 'wonder' },
+  { id: 'cathedrale_slot',   zone: 'capitale', label: 'Grande Cathédrale',    x: 490, y: 68, type: 'wonder' },
+
+  // ── Zone Artisanale ────────────────────────────────────────────────
+  { id: 'charpenterie_slot_1', zone: 'artisanale', label: 'Atelier Charron',   x: 125, y: 195, type: 'commercial', buildingDefId: 'charpenterie', locked: true },
+  { id: 'market_slot_1',       zone: 'artisanale', label: 'Place du Marché',   x: 295, y: 195, type: 'commercial', buildingDefId: 'fruit_market', locked: true },
+  { id: 'market_slot_2',       zone: 'artisanale', label: 'Carrefour Nord',    x: 395, y: 195, type: 'commercial', buildingDefId: 'fruit_market', locked: true },
+  { id: 'menuiserie_slot_1',   zone: 'artisanale', label: 'Atelier du Bois',   x: 545, y: 195, type: 'commercial', buildingDefId: 'menuiserie' },
+  { id: 'menuiserie_slot_2',   zone: 'artisanale', label: 'Grande Menuiserie', x: 660, y: 195, type: 'commercial', buildingDefId: 'menuiserie',  locked: true },
+
+  // ── Zone Champs & Extraction ───────────────────────────────────────
+  { id: 'orchard_slot_1',    zone: 'champs', label: 'Verger du Vallon',       x:  80, y: 350, type: 'resource', buildingDefId: 'orchard',   locked: true },
+  { id: 'orchard_slot_2',    zone: 'champs', label: 'Verger des Collines',    x: 200, y: 385, type: 'resource', buildingDefId: 'orchard',   locked: true },
+  { id: 'carriere_slot_1',   zone: 'champs', label: 'Carrière du Vallon',     x: 360, y: 345, type: 'resource', buildingDefId: 'carriere',  locked: true },
+  { id: 'carriere_slot_2',   zone: 'champs', label: 'Carrière du Nord',       x: 470, y: 385, type: 'resource', buildingDefId: 'carriere',  locked: true },
+  { id: 'scierie_slot_1',    zone: 'champs', label: 'Scierie du Bois Neuf',   x: 580, y: 345, type: 'resource', buildingDefId: 'sawmill' },
+  { id: 'scierie_slot_2',    zone: 'champs', label: 'Scierie des Hauteurs',   x: 670, y: 388, type: 'resource', buildingDefId: 'sawmill',   locked: true },
 ]
 
 export function initGame(): GameState {
   const resDefs = resourceDefs as any[]
   const woodDef  = resDefs.find(r => r.id === 'wood')!
   const appleDef = resDefs.find(r => r.id === 'apple')!
+  const pierreDef = resDefs.find(r => r.id === 'pierre')!
+  const meubleDef = resDefs.find(r => r.id === 'meuble')!
 
   const wDefs = wonderDefs as any[]
   const towerDef      = wDefs.find(w => w.id === 'tower_of_magic')!
@@ -42,13 +57,11 @@ export function initGame(): GameState {
       name,
       color: GUILD_COLORS[id],
       gold,
-      inventory: { apple: 0, wood: 0 },
+      inventory: { apple: 0, wood: 0, pierre: 0, meuble: 0 },
       buildings: [],
       netWorthHistory: [],
     }
   }
-
-  const briceResource: ResourceId = 'wood'  // Phase 0: Brice focuses on wood
 
   return {
     // ─── Time ───────────────────────────────────────────────────────────────
@@ -70,14 +83,17 @@ export function initGame(): GameState {
       inventory: {
         apple: 0,
         wood:  1,
+        pierre: 0,
+        meuble: 0,
       },
       buildings: [],
       netWorthHistory: [],
     },
 
-    // ─── Rivals — Phase 0 : Brice only ──────────────────────────────────────
+    // ─── Rivals — Brice (Phase 0+), Raph (joins Phase 1 when player buys sawmill) ──
     rivals: [
       makeRival('brice', 'Brice', 80),
+      makeRival('raph',  'Raph',  60),   // inactive until player buys sawmill
     ],
 
     // ─── Market ─────────────────────────────────────────────────────────────
@@ -88,22 +104,40 @@ export function initGame(): GameState {
           currentPrice:         appleDef.basePrice,
           equilibriumPrice:     appleDef.equilibriumPrice,
           baseEquilibriumPrice: appleDef.equilibriumPrice,
-          volatility:           appleDef.volatility ?? 0.10,
+          volatility:           appleDef.volatility ?? 0.12,
           elasticityK:          appleDef.elasticityK,
           volumeAvailable:      appleDef.startingVolume,
           priceHistory: [{ day: 0, price: appleDef.basePrice }],
         },
         wood: {
           resourceId: 'wood',
-          // Phase 0 : starts at 5g (stable, inviting the player to sell)
-          // First player sell triggers caravan event → price falls toward 1g
           currentPrice:         5.0,
           equilibriumPrice:     5.0,
-          baseEquilibriumPrice: woodDef.equilibriumPrice,  // 3.5 — used from day 3+
+          baseEquilibriumPrice: woodDef.equilibriumPrice,
           volatility:           0.04,
           elasticityK:          woodDef.elasticityK,
           volumeAvailable:      woodDef.startingVolume,
           priceHistory: [{ day: 0, price: 5.0 }],
+        },
+        pierre: {
+          resourceId: 'pierre',
+          currentPrice:         pierreDef.basePrice,
+          equilibriumPrice:     pierreDef.equilibriumPrice,
+          baseEquilibriumPrice: pierreDef.equilibriumPrice,
+          volatility:           pierreDef.volatility ?? 0.07,
+          elasticityK:          pierreDef.elasticityK,
+          volumeAvailable:      pierreDef.startingVolume,
+          priceHistory: [{ day: 0, price: pierreDef.basePrice }],
+        },
+        meuble: {
+          resourceId: 'meuble',
+          currentPrice:         meubleDef.basePrice,
+          equilibriumPrice:     meubleDef.equilibriumPrice,
+          baseEquilibriumPrice: meubleDef.equilibriumPrice,
+          volatility:           meubleDef.volatility ?? 0.10,
+          elasticityK:          meubleDef.elasticityK,
+          volumeAvailable:      meubleDef.startingVolume,
+          priceHistory: [{ day: 0, price: meubleDef.basePrice }],
         },
       },
     },
@@ -136,9 +170,10 @@ export function initGame(): GameState {
       },
     ],
 
-    // ─── Strategies ─────────────────────────────────────────────────────────
+    // ─── Strategies — Brice active from start, Raph joins on Phase 1 ────────
     rivalStrategies: {
-      brice: { preferredResource: briceResource },
+      brice: { preferredResource: 'wood', pumpPhase: 'idle' },
+      // raph: added dynamically when player buys sawmill
     },
 
     // ─── Shares ─────────────────────────────────────────────────────────────

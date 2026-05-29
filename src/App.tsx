@@ -4,7 +4,7 @@ import { initGame } from './engine/init'
 import { contributeToWonder } from './engine/day'
 import { resolveTick } from './engine/tick'
 import { sellToMarket, buyFromMarket } from './engine/market'
-import { buyBuilding } from './engine/buildings'
+import { buyBuilding, upgradeBuilding } from './engine/buildings'
 import { buyShare } from './engine/shares'
 import { generateChronicle } from './engine/chronicle'
 import type { ChronicleResult } from './engine/chronicle'
@@ -62,6 +62,10 @@ export default function App() {
     dispatch(s => buyBuilding(s, defId))
   }
 
+  function handleUpgradeBuilding(instanceId: string) {
+    dispatch(s => upgradeBuilding(s, instanceId))
+  }
+
   function handleBuyShare(instanceId: string) {
     dispatch(s => buyShare(s, instanceId))
   }
@@ -116,6 +120,7 @@ export default function App() {
             state={state}
             onBuyBuilding={handleBuyBuilding}
             onBuyShare={handleBuyShare}
+            onUpgradeBuilding={handleUpgradeBuilding}
           />
         </div>
       </div>

@@ -3,6 +3,7 @@
     "id": "orchard",
     "name": "Verger",
     "tier": 1,
+    "zone": "champs",
     "costGold": 10,
     "produces": "apple",
     "productionPerDay": 20
@@ -11,6 +12,7 @@
     "id": "fruit_market",
     "name": "Marché aux Fruits",
     "tier": 2,
+    "zone": "artisanale",
     "costResources": { "apple": 120 },
     "productionPerDay": 0,
     "revenuePerDay": 30
@@ -19,16 +21,40 @@
     "id": "sawmill",
     "name": "Scierie",
     "tier": 1,
+    "zone": "champs",
     "costGold": 15,
     "produces": "wood",
-    "productionPerDay": 8
+    "productionPerDay": 8,
+    "upgradable": true,
+    "maxLevel": 5
   },
   {
     "id": "menuiserie",
     "name": "Menuiserie",
     "tier": 2,
+    "zone": "artisanale",
     "costResources": { "wood": 80 },
     "productionPerDay": 0,
     "revenuePerDay": 35
+  },
+  {
+    "id": "carriere",
+    "name": "Carrière",
+    "tier": 1,
+    "zone": "champs",
+    "costGold": 20,
+    "produces": "pierre",
+    "productionPerDay": 6
+  },
+  {
+    "id": "charpenterie",
+    "name": "Charpenterie",
+    "tier": 2,
+    "zone": "artisanale",
+    "costGold": 30,
+    "autoConsumeInput": "wood",
+    "autoConsumeQty": 5,
+    "produces": "meuble",
+    "productionPerDay": 2
   }
 ]
