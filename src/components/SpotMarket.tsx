@@ -638,7 +638,17 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
         <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>J{state.day}</span>
       </div>
 
-      {/* ── Active rumors ── */}
+      {/* ── Wood market card — fixed position, always at top ── */}
+      <ResourceCard
+        resourceId="wood"
+        resourceMarket={state.market.resources['wood']}
+        state={state}
+        onSell={qty => onSell('wood', qty)}
+        onBuy={qty => onBuy('wood', qty)}
+        onContribute={qty => onContribute(qty, 'grande_cathedrale')}
+      />
+
+      {/* ── Active rumors — below the card so buttons never shift ── */}
       {state.activeRumors.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
           {state.activeRumors.slice(-3).map((r, i) => (
@@ -658,16 +668,6 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
           ))}
         </div>
       )}
-
-      {/* ── Wood market card (Phase 0 — only wood shown) ── */}
-      <ResourceCard
-        resourceId="wood"
-        resourceMarket={state.market.resources['wood']}
-        state={state}
-        onSell={qty => onSell('wood', qty)}
-        onBuy={qty => onBuy('wood', qty)}
-        onContribute={qty => onContribute(qty, 'grande_cathedrale')}
-      />
 
       {/* ── Spacer ── */}
       <div style={{ flex: 1 }} />
