@@ -36,6 +36,16 @@ export default function App() {
   // ─── Dev tools ──────────────────────────────────────────────────────────────
   useEffect(() => {
     (window as any).__GAME_STATE__ = state
+    ;(window as any).__DEV__ = {
+      // Skip Phase 0: give player 10 wood so Phase 0 is done and sawmill is unlockable
+      skipToPhase1: () => setState(prev => ({
+        ...prev,
+        player: {
+          ...prev.player,
+          inventory: { ...prev.player.inventory, wood: 10 },
+        },
+      })),
+    }
   }, [state])
 
   // ─── Player actions ──────────────────────────────────────────────────────────
@@ -124,6 +134,32 @@ export default function App() {
           />
         </div>
       </div>
+
+      {/* ── DEV PANEL — bottom-right overlay ── */}
+      {import.meta.env.DEV && (
+        <div style={{
+          position: 'fixed', bottom: 12, right: 12, zIndex: 9999,
+          background: 'rgba(10,10,20,0.92)', border: '1px solid #c9a84c44',
+          borderRadius: 6, padding: '6px 10px',
+          display: 'flex', gap: 8, alignItems: 'center',
+          fontFamily: 'Fira Code, monospace', fontSize: '0.68rem', color: '#c9a84c88',
+        }}>
+          <span>DEV</span>
+          <button
+            onClick={() => dispatch(s => ({
+              ...s,
+              player: { ...s.player, inventory: { ...s.player.inventory, wood: 10 } },
+            }))}
+            style={{
+              background: 'none', border: '1px solid #c9a84c66', borderRadius: 4,
+              color: '#c9a84c', padding: '2px 8px', cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: 'inherit',
+            }}
+          >
+            ⏩ Phase 1
+          </button>
+        </div>
+      )}
 
       {/* Chronicle overlay (end-game screen) */}
       {chronicle && (

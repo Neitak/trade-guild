@@ -1,15 +1,5 @@
 [
   {
-    "id": "apple",
-    "name": "Pomme",
-    "category": "CONFORT",
-    "basePrice": 1.0,
-    "equilibriumPrice": 1.0,
-    "elasticityK": 0.20,
-    "startingVolume": 80,
-    "volatility": 0.12
-  },
-  {
     "id": "wood",
     "name": "Bois",
     "category": "CONSTRUCTION",
@@ -20,23 +10,33 @@
     "volatility": 0.08
   },
   {
-    "id": "pierre",
-    "name": "Pierre",
-    "category": "CONSTRUCTION",
-    "basePrice": 4.0,
-    "equilibriumPrice": 3.8,
-    "elasticityK": 0.12,
+    "id": "olive",
+    "name": "Olives",
+    "category": "ALIMENTAIRE",
+    "basePrice": 2.0,
+    "equilibriumPrice": 1.8,
+    "elasticityK": 0.18,
     "startingVolume": 60,
-    "volatility": 0.07
+    "volatility": 0.14
   },
   {
     "id": "meuble",
-    "name": "Meuble",
+    "name": "Meubles",
     "category": "CONFORT",
     "basePrice": 9.0,
     "equilibriumPrice": 8.0,
     "elasticityK": 0.25,
     "startingVolume": 20,
     "volatility": 0.10
+  },
+  {
+    "id": "huile",
+    "name": "Huile d'olive",
+    "category": "LUXE",
+    "basePrice": 9.0,
+    "equilibriumPrice": 8.0,
+    "elasticityK": 0.22,
+    "startingVolume": 15,
+    "volatility": 0.15
   }
 ]

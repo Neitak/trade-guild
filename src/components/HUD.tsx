@@ -46,9 +46,9 @@ export function HUD({ state }: Props) {
   // ─── Non-zero inventory to display ──────────────────────────────────────────
   const inventorySlots = [
     { id: 'wood',   icon: '🪵', qty: player.inventory.wood   ?? 0, price: market.resources.wood.currentPrice,   color: '#5a9e6a' },
-    { id: 'pierre', icon: '🗿', qty: player.inventory.pierre ?? 0, price: market.resources.pierre.currentPrice, color: '#a09070' },
+    { id: 'olive',  icon: '🫒', qty: player.inventory.olive  ?? 0, price: market.resources.olive.currentPrice,  color: '#8bc34a' },
     { id: 'meuble', icon: '🪑', qty: player.inventory.meuble ?? 0, price: market.resources.meuble.currentPrice, color: '#b07ec8' },
-    { id: 'apple',  icon: '🍎', qty: player.inventory.apple  ?? 0, price: market.resources.apple.currentPrice,  color: '#c9a84c' },
+    { id: 'huile',  icon: '🫙', qty: player.inventory.huile  ?? 0, price: market.resources.huile.currentPrice,  color: '#c9a84c' },
   ].filter(e => e.qty > 0)
 
   const tickPct = ((tickOfDay ?? 0) / 30) * 100

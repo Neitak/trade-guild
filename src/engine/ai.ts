@@ -8,14 +8,10 @@ import { rivalBuyBuilding, upgradeBuildingRival } from './buildings'
 export function runRivalAI(state: GameState, guildId: GuildId): GameState {
   let s = state
   const strategy = s.rivalStrategies[guildId]
-  if (!strategy) return s   // inactive rival — no strategy assigned yet
+  if (!strategy) return s
 
-  if (strategy.preferredResource === 'apple') {
-    s = runAppleStrategy(s, guildId)
-  } else if (strategy.preferredResource === 'pierre') {
-    s = runPierreStrategy(s, guildId)
-  } else if (strategy.preferredResource === 'meuble') {
-    s = runImmoStrategy(s, guildId)
+  if (strategy.preferredResource === 'huile') {
+    s = runHuileStrategy(s, guildId)
   } else {
     s = runWoodStrategy(s, guildId)
   }
@@ -49,123 +45,66 @@ function setStrategy(state: GameState, guildId: GuildId, patch: Partial<RivalStr
   }
 }
 
-// ─── Apple filière ────────────────────────────────────────────────────────────
-
-function runAppleStrategy(state: GameState, guildId: GuildId): GameState {
-  let s = state
-  const rival = () => getRival(s, guildId)
-
-  const hasOrchard = rival().buildings.some(b => b.defId === 'orchard')
-  if (!hasOrchard && rival().gold >= 10) {
-    s = rivalBuyBuilding(s, guildId, 'orchard')
-  }
-
-  const hasFruitMarket = rival().buildings.some(b => b.defId === 'fruit_market')
-  const apples = rival().inventory['apple'] ?? 0
-  if (hasOrchard && !hasFruitMarket && apples < 120 && rival().gold > 80) {
-    const need = 120 - apples
-    const qty = Math.min(need, 15, s.market.resources['apple'].volumeAvailable, Math.floor(rival().gold * 0.08))
-    if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'apple', qty)
-  }
-
-  const applesForBuild = rival().inventory['apple'] ?? 0
-  if (hasOrchard && !rival().buildings.some(b => b.defId === 'fruit_market') && applesForBuild >= 120) {
-    s = rivalBuyBuilding(s, guildId, 'fruit_market')
-  }
-
-  // Profit-taking
-  const appleMarket = s.market.resources['apple']
-  const applesNow = rival().inventory['apple'] ?? 0
-  if (appleMarket.currentPrice > appleMarket.equilibriumPrice * 1.10 && applesNow > 25) {
-    const qty = Math.floor(applesNow * 0.4)
-    if (qty > 0) s = rivalSellToMarket(s, guildId, 'apple', qty)
-  }
-
-  // Opportunistic buy
-  if (rival().buildings.some(b => b.defId === 'fruit_market') &&
-      appleMarket.currentPrice < appleMarket.equilibriumPrice * 0.90 &&
-      (rival().inventory['apple'] ?? 0) < 80 && rival().gold > 60) {
-    const qty = Math.min(20, appleMarket.volumeAvailable, Math.floor(rival().gold * 0.15))
-    if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'apple', qty)
-  }
-
-  // Wonder contribution
-  const tower = s.wonders.find(w => w.id === 'tower_of_magic')
-  if (tower && !tower.complete) {
-    const contributed = tower.rivalContributed[guildId]?.['apple'] ?? 0
-    const needed = (tower.requiredResources['apple'] ?? 0) - contributed
-    const stock = rival().inventory['apple'] ?? 0
-    if (needed > 0 && stock >= 40 && s.day >= 10) {
-      const qty = Math.max(0, Math.min(stock - 20, needed))
-      if (qty > 0) s = contributeToWonderRival(s, guildId, 'tower_of_magic', qty)
-    }
-  }
-
-  return s
-}
-
 // ─── Wood filière + Pump & Dump (Brice) ──────────────────────────────────────
-// Phase 1: buy sawmill → accumulate for menuiserie
-// Phase 2: pump & dump once established → 4ème sensation "je me suis fait avoir"
 
 function runWoodStrategy(state: GameState, guildId: GuildId): GameState {
   let s = state
   const rival = () => getRival(s, guildId)
-  const strategy = () => s.rivalStrategies[guildId]!
 
-  // ── Buy sawmill ──────────────────────────────────────────────────────────
+  // ── Buy sawmill (costs 10 wood) ──────────────────────────────────────────
   const hasSawmill = rival().buildings.some(b => b.defId === 'sawmill')
-  if (!hasSawmill && rival().gold >= 15) {
-    s = rivalBuyBuilding(s, guildId, 'sawmill')
-    // Unlock scierie_slot_2 immediately when first sawmill is built
-    s = unlockNodeImmediate(s, 'scierie_slot_2',
-      `Les bûcherons affluent — la Scierie des Hauteurs est désormais disponible.`)
+  const wood = rival().inventory['wood'] ?? 0
+  if (!hasSawmill) {
+    // Accumulate 10 wood first
+    if (wood < 10 && rival().gold >= 10) {
+      const need = 10 - wood
+      const qty = Math.min(need, s.market.resources['wood'].volumeAvailable, Math.floor(rival().gold * 0.15))
+      if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'wood', qty)
+    }
+    if ((rival().inventory['wood'] ?? 0) >= 10) {
+      s = rivalBuyBuilding(s, guildId, 'sawmill')
+      s = unlockNodeImmediate(s, 'extraction_slot_2',
+        `Les bûcherons affluent — la Forêt des Hauteurs est désormais disponible.`)
+    }
   }
 
-  // ── Upgrade sawmill (Brice competes for higher production) ───────────────
+  // ── Upgrade sawmill ──────────────────────────────────────────────────────
   if (hasSawmill && s.day >= 5) {
     const sawmill = rival().buildings.find(b => b.defId === 'sawmill')
     if (sawmill) {
       const level = sawmill.level ?? 1
       const upgradeCosts: Record<number, number> = { 1: 25, 2: 50, 3: 100, 4: 200 }
-      if (level < 5 && rival().gold >= (upgradeCosts[level] ?? 999)) {
-        // Brice upgrades every 4 days to create a believable progression
-        if (s.day % 4 === 0) {
-          s = upgradeBuildingRival(s, guildId, sawmill.instanceId)
-        }
+      if (level < 5 && rival().gold >= (upgradeCosts[level] ?? 999) && s.day % 4 === 0) {
+        s = upgradeBuildingRival(s, guildId, sawmill.instanceId)
       }
     }
   }
 
   // ── Accumulate wood for menuiserie ───────────────────────────────────────
   const hasMenuiserie = rival().buildings.some(b => b.defId === 'menuiserie')
-  const wood = rival().inventory['wood'] ?? 0
-  if (hasSawmill && !hasMenuiserie && wood < 80 && rival().gold > 60) {
-    const need = 80 - wood
+  const woodNow = rival().inventory['wood'] ?? 0
+  if (hasSawmill && !hasMenuiserie && woodNow < 80 && rival().gold > 60) {
+    const need = 80 - woodNow
     const qty = Math.min(need, 8, s.market.resources['wood'].volumeAvailable, Math.floor(rival().gold * 0.05))
     if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'wood', qty)
   }
-
-  const woodForBuild = rival().inventory['wood'] ?? 0
-  if (hasSawmill && !rival().buildings.some(b => b.defId === 'menuiserie') && woodForBuild >= 80) {
+  if (hasSawmill && !hasMenuiserie && (rival().inventory['wood'] ?? 0) >= 80) {
     s = rivalBuyBuilding(s, guildId, 'menuiserie')
   }
 
-  // ── Pump & Dump — after Phase 1 established (menuiserie owned, day > 10) ──
+  // ── Pump & Dump — after menuiserie established ───────────────────────────
   if (hasMenuiserie && s.day > 10) {
     s = runPumpDump(s, guildId)
-    return s  // skip normal profit-taking when pump/dump active
+    return s
   }
 
-  // ── Normal profit-taking (pre-Phase 2) ───────────────────────────────────
+  // ── Normal profit-taking ─────────────────────────────────────────────────
   const woodMarket = s.market.resources['wood']
-  const woodNow = rival().inventory['wood'] ?? 0
   if (woodMarket.currentPrice > woodMarket.equilibriumPrice * 1.10 && woodNow > 15) {
     const qty = Math.floor(woodNow * 0.4)
     if (qty > 0) s = rivalSellToMarket(s, guildId, 'wood', qty)
   }
 
-  // ── Wonder contribution ───────────────────────────────────────────────────
   s = tryContributeWonder(s, guildId, 'grande_cathedrale', 'wood', 20, 10)
 
   return s
@@ -182,10 +121,9 @@ function runPumpDump(state: GameState, guildId: GuildId): GameState {
   const phase = strategy().pumpPhase ?? 'idle'
   const cooldownDay = strategy().pumpCooldownDay ?? 0
 
-  if (s.day < cooldownDay) return s  // on cooldown
+  if (s.day < cooldownDay) return s
 
   if (phase === 'idle') {
-    // Start pumping when price is near equilibrium and Brice has gold
     if (woodMarket.currentPrice < woodMarket.equilibriumPrice * 1.08 && rival().gold >= 50) {
       const qty = Math.min(30, woodMarket.volumeAvailable, Math.floor(rival().gold * 0.55))
       if (qty >= 8) {
@@ -194,12 +132,10 @@ function runPumpDump(state: GameState, guildId: GuildId): GameState {
       }
     }
   } else if (phase === 'pumping') {
-    // Keep buying to push price up
     if (woodMarket.currentPrice < woodMarket.equilibriumPrice * 1.30 && rival().gold >= 25) {
       const qty = Math.min(20, woodMarket.volumeAvailable, Math.floor(rival().gold * 0.40))
       if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'wood', qty)
     }
-    // Trigger dump: price is high enough OR player bought into the pump
     const pumpDays = s.day - (strategy().pumpStartDay ?? s.day)
     const playerWood = s.player.inventory['wood'] ?? 0
     if (
@@ -210,85 +146,84 @@ function runPumpDump(state: GameState, guildId: GuildId): GameState {
       s = setStrategy(s, guildId, { pumpPhase: 'dumping' })
     }
   } else if (phase === 'dumping') {
-    // Dump everything — crash the price
     const toDump = Math.floor(woodNow * 0.85)
-    if (toDump > 0) {
-      s = rivalSellToMarket(s, guildId, 'wood', toDump)
-    }
-    // Back to idle with cooldown (5-8 days before next pump)
+    if (toDump > 0) s = rivalSellToMarket(s, guildId, 'wood', toDump)
     s = setStrategy(s, guildId, {
       pumpPhase: 'idle',
       pumpCooldownDay: s.day + 5 + Math.floor(Math.random() * 4),
     })
-    // Wonder contribution after dump — Brice converts profits to wonder
     s = tryContributeWonder(s, guildId, 'grande_cathedrale', 'wood', 20, 10)
   }
 
   return s
 }
 
-// ─── Pierre filière (Raph) ────────────────────────────────────────────────────
+// ─── Huile filière (Raph) ─────────────────────────────────────────────────────
+// Phase 1 — achète une Oliveraie (farm_slot)
+// Phase 2 — accumule olives, vend au bon moment
+// Phase 3 — accumule 80 olives pour acheter la Presse
+// Phase 4 — vend huile au bon moment, cible l'Auberge
 
-function runPierreStrategy(state: GameState, guildId: GuildId): GameState {
+function runHuileStrategy(state: GameState, guildId: GuildId): GameState {
   let s = state
   const rival = () => getRival(s, guildId)
 
-  // Buy carriere when node is available
-  const hasCarriere = rival().buildings.some(b => b.defId === 'carriere')
-  const carriereAvailable = s.map.nodes.some(n => n.buildingDefId === 'carriere' && !n.locked && !n.ownedBy)
-  if (!hasCarriere && carriereAvailable && rival().gold >= 20) {
-    s = rivalBuyBuilding(s, guildId, 'carriere')
+  const hasOlivery  = rival().buildings.some(b => b.defId === 'olivery')
+  const hasPress    = rival().buildings.some(b => b.defId === 'press')
+  const olives      = rival().inventory['olive'] ?? 0
+  const huile       = rival().inventory['huile'] ?? 0
+  const oliveMarket = s.market.resources['olive']
+  const huileMarket = s.market.resources['huile']
+
+  // ── Phase 1 : achète une Oliveraie ───────────────────────────────────────
+  if (!hasOlivery && rival().gold >= 10) {
+    s = rivalBuyBuilding(s, guildId, 'olivery')
   }
 
-  const pierre = rival().inventory['pierre'] ?? 0
-  const pierreMarket = s.market.resources['pierre']
-
-  // Profit-taking: sell when price > 115% equilibrium
-  if (pierre > 20 && pierreMarket.currentPrice > pierreMarket.equilibriumPrice * 1.15) {
-    const qty = Math.floor(pierre * 0.45)
-    if (qty > 0) s = rivalSellToMarket(s, guildId, 'pierre', qty)
+  // ── Phase 2 : accumule olives pour la Presse (coût 80 olives) ────────────
+  if (hasOlivery && !hasPress && olives < 80 && rival().gold > 30) {
+    const need = 80 - olives
+    const qty = Math.min(need, 10, oliveMarket.volumeAvailable, Math.floor(rival().gold * 0.10))
+    if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'olive', qty)
   }
 
-  // Opportunistic accumulation
-  if (pierre < 30 && pierreMarket.currentPrice < pierreMarket.equilibriumPrice * 0.90 && rival().gold >= 30) {
-    const qty = Math.min(15, pierreMarket.volumeAvailable, Math.floor(rival().gold * 0.2))
-    if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'pierre', qty)
+  // ── Phase 3 : achète la Presse quand 80 olives ───────────────────────────
+  if (hasOlivery && !hasPress && olives >= 80) {
+    s = rivalBuyBuilding(s, guildId, 'press')
   }
 
-  return s
-}
+  // ── Profit-taking : vend olives en surplus ────────────────────────────────
+  if (hasOlivery && olives > 20 && oliveMarket.currentPrice > oliveMarket.equilibriumPrice * 1.15) {
+    const qty = Math.floor(olives * 0.40)
+    if (qty > 0) s = rivalSellToMarket(s, guildId, 'olive', qty)
+  }
 
-// ─── Immobilier filière (Rita) — Phase 3 ────────────────────────────────────
+  // ── Profit-taking : vend huile ────────────────────────────────────────────
+  if (hasPress && huile > 3 && huileMarket.currentPrice > huileMarket.equilibriumPrice * 1.10) {
+    const qty = Math.floor(huile * 0.50)
+    if (qty > 0) s = rivalSellToMarket(s, guildId, 'huile', qty)
+  }
 
-function runImmoStrategy(state: GameState, guildId: GuildId): GameState {
-  let s = state
-  const rival = () => getRival(s, guildId)
-
+  // ── Phase 4 : accumule bois + huile pour l'Auberge ───────────────────────
   const hasAuberge = rival().buildings.some(b => b.defId === 'auberge')
-  const aubergeAvailable = s.map.nodes.some(
-    n => n.buildingDefId === 'auberge' && !n.locked && !n.ownedBy
-  )
-
-  if (!hasAuberge && aubergeAvailable) {
-    // Accumulate bois + pierre to build auberge (40or + 20bois + 10pierre)
-    const pierre = rival().inventory['pierre'] ?? 0
-    const wood   = rival().inventory['wood'] ?? 0
-    if (pierre < 10 && rival().gold > 35) {
-      const qty = Math.min(10 - pierre, s.market.resources['pierre'].volumeAvailable, Math.floor(rival().gold * 0.2))
-      if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'pierre', qty)
+  if (hasPress && !hasAuberge) {
+    const huileStock = rival().inventory['huile'] ?? 0
+    const woodStock  = rival().inventory['wood'] ?? 0
+    if (huileStock < 10 && rival().gold > 30) {
+      const qty = Math.min(10 - huileStock, huileMarket.volumeAvailable, Math.floor(rival().gold * 0.15))
+      if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'huile', qty)
     }
-    if (wood < 20 && rival().gold > 35) {
-      const qty = Math.min(20 - wood, s.market.resources['wood'].volumeAvailable, Math.floor(rival().gold * 0.15))
+    if (woodStock < 20 && rival().gold > 30) {
+      const qty = Math.min(20 - woodStock, s.market.resources['wood'].volumeAvailable, Math.floor(rival().gold * 0.10))
       if (qty > 0) s = rivalBuyFromMarket(s, guildId, 'wood', qty)
     }
-    if (rival().gold >= 40 && (rival().inventory['wood'] ?? 0) >= 20 && (rival().inventory['pierre'] ?? 0) >= 10) {
+    if (rival().gold >= 40 && (rival().inventory['wood'] ?? 0) >= 20 && (rival().inventory['huile'] ?? 0) >= 10) {
       s = rivalBuyBuilding(s, guildId, 'auberge')
     }
-    return s
   }
 
+  // ── Upgrade auberge avec meubles ─────────────────────────────────────────
   if (hasAuberge) {
-    // Upgrade auberge with meubles (CONFORT)
     const auberge = rival().buildings.find(b => b.defId === 'auberge')!
     const level = auberge.level ?? 1
     if (level < 5) {
@@ -303,11 +238,6 @@ function runImmoStrategy(state: GameState, guildId: GuildId): GameState {
         s = upgradeBuildingRival(s, guildId, auberge.instanceId)
       }
     }
-    // Sell excess inventory to accumulate gold
-    const woodNow = rival().inventory['wood'] ?? 0
-    if (woodNow > 10) s = rivalSellToMarket(s, guildId, 'wood', Math.floor(woodNow * 0.6))
-    const pierreNow = rival().inventory['pierre'] ?? 0
-    if (pierreNow > 5) s = rivalSellToMarket(s, guildId, 'pierre', Math.floor(pierreNow * 0.5))
   }
 
   return s

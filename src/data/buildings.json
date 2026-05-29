@@ -1,69 +1,58 @@
 [
   {
-    "id": "orchard",
-    "name": "Verger",
-    "tier": 1,
-    "zone": "champs",
-    "costGold": 10,
-    "produces": "apple",
-    "productionPerDay": 20
-  },
-  {
-    "id": "fruit_market",
-    "name": "Marché aux Fruits",
-    "tier": 2,
-    "zone": "artisanale",
-    "costResources": { "apple": 120 },
-    "productionPerDay": 0,
-    "revenuePerDay": 30
-  },
-  {
     "id": "sawmill",
-    "name": "Scierie",
+    "name": "Bûcheron",
     "tier": 1,
     "zone": "champs",
-    "costGold": 15,
+    "slotType": "extraction",
+    "costResources": { "wood": 10 },
     "produces": "wood",
     "productionPerDay": 8,
     "upgradable": true,
     "maxLevel": 5
   },
   {
+    "id": "olivery",
+    "name": "Oliveraie",
+    "tier": 1,
+    "zone": "champs",
+    "slotType": "farm",
+    "costGold": 10,
+    "produces": "olive",
+    "productionPerDay": 6
+  },
+  {
     "id": "menuiserie",
     "name": "Menuiserie",
     "tier": 2,
     "zone": "artisanale",
+    "slotType": "workshop",
     "costResources": { "wood": 80 },
-    "productionPerDay": 0,
-    "revenuePerDay": 35
+    "autoConsumeInput": "wood",
+    "autoConsumeQty": 4,
+    "produces": "meuble",
+    "productionPerDay": 1
   },
   {
-    "id": "carriere",
-    "name": "Carrière",
-    "tier": 1,
-    "zone": "champs",
-    "costGold": 20,
-    "produces": "pierre",
-    "productionPerDay": 6
-  },
-  {
-    "id": "charpenterie",
-    "name": "Charpenterie",
+    "id": "press",
+    "name": "Presse",
     "tier": 2,
     "zone": "artisanale",
-    "costGold": 30,
-    "autoConsumeInput": "wood",
-    "autoConsumeQty": 5,
-    "produces": "meuble",
-    "productionPerDay": 2
+    "slotType": "workshop",
+    "costResources": { "olive": 80 },
+    "autoConsumeInput": "olive",
+    "autoConsumeQty": 3,
+    "produces": "huile",
+    "productionPerDay": 1
   },
   {
     "id": "auberge",
     "name": "Auberge",
     "tier": 3,
     "zone": "capitale",
+    "slotType": "commercial",
     "costGold": 40,
-    "costResources": { "wood": 20, "pierre": 10 },
+    "costResources": { "wood": 20, "huile": 10 },
     "productionPerDay": 0,
     "revenuePerDay": 20,
     "upgradable": true,

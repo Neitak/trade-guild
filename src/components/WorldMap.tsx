@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
-import type { GameState, BuildingId, GuildId } from '../engine/types'
+import type { GameState, BuildingId, GuildId, SlotType } from '../engine/types'
 import { GUILD_COLORS } from '../engine/types'
 import { previewBuyShare } from '../engine/shares'
 import { SAWMILL_PRODUCTION, AUBERGE_REVENUE } from '../engine/buildings'
 import buildingDefs from '../data/buildings.json'
 import bgMap from '../../images/bg01.png'
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const RESOURCE_ICONS: Record<string, string> = {
+  wood: '🪵', olive: '🫒', meuble: '🪑', huile: '🫙', pierre: '🗿',
+}
 
 function getBuildingCostLabel(defId: string): string {
   const def = (buildingDefs as any[]).find(b => b.id === defId)
@@ -12,8 +18,8 @@ function getBuildingCostLabel(defId: string): string {
   const parts: string[] = []
   if (def.costGold) parts.push(`${def.costGold}or`)
   if (def.costResources?.wood)   parts.push(`${def.costResources.wood}🪵`)
-  if (def.costResources?.pierre) parts.push(`${def.costResources.pierre}🗿`)
-  if (def.costResources?.apple)  parts.push(`${def.costResources.apple}🍎`)
+  if (def.costResources?.olive)  parts.push(`${def.costResources.olive}🫒`)
+  if (def.costResources?.huile)  parts.push(`${def.costResources.huile}🫙`)
   if (def.costResources?.meuble) parts.push(`${def.costResources.meuble}🪑`)
   return parts.join('+')
 }
@@ -31,6 +37,11 @@ function canAffordBuilding(defId: string, state: GameState): boolean {
   return true
 }
 
+// Find all buildings available for a given slot type
+function getBuildingsForSlot(slotType: SlotType): any[] {
+  return (buildingDefs as any[]).filter(d => d.slotType === slotType)
+}
+
 interface Props {
   state: GameState
   onBuyBuilding: (defId: BuildingId) => void
@@ -41,40 +52,33 @@ interface Props {
 // ─── Node positions — match init.ts MAP_NODES exactly ────────────────────────
 const NODE_POSITIONS: Record<string, { x: number; y: number; label: string; icon: string }> = {
   // Capitale
-  auberge_slot_1:       { x: 100, y:  68, label: 'Auberge du Carrefour', icon: '🏨' },
-  wonder_slot:          { x: 270, y:  68, label: 'Tour de Magie',        icon: '🗼' },
-  cathedrale_slot:      { x: 450, y:  68, label: 'Grande Cathédrale',    icon: '⛪' },
-  auberge_slot_2:       { x: 620, y:  68, label: 'Grande Auberge',       icon: '🏨' },
+  commercial_slot_1: { x: 220, y:  68, label: 'Auberge du Carrefour', icon: '🏨' },
+  wonder_slot:       { x: 360, y:  68, label: 'Tour de Magie',        icon: '🗼' },
+  cathedrale_slot:   { x: 500, y:  68, label: 'Grande Cathédrale',    icon: '⛪' },
+  commercial_slot_2: { x: 620, y:  68, label: 'Grande Auberge',       icon: '🏨' },
   // Artisanale
-  charpenterie_slot_1:  { x: 125, y: 195, label: 'Atelier Charron',      icon: '🪑' },
-  market_slot_1:        { x: 295, y: 195, label: 'Place du Marché',      icon: '🏪' },
-  market_slot_2:        { x: 395, y: 195, label: 'Carrefour Nord',       icon: '🏪' },
-  menuiserie_slot_1:    { x: 545, y: 195, label: 'Atelier du Bois',      icon: '🔨' },
-  menuiserie_slot_2:    { x: 660, y: 195, label: 'Grande Menuiserie',    icon: '🔨' },
+  workshop_slot_1:   { x: 270, y: 195, label: 'Atelier Sud',          icon: '🔨' },
+  workshop_slot_2:   { x: 490, y: 195, label: 'Atelier Nord',         icon: '🔨' },
   // Champs
-  orchard_slot_1:       { x:  80, y: 350, label: 'Verger du Vallon',     icon: '🌳' },
-  orchard_slot_2:       { x: 200, y: 385, label: 'Verger des Collines',  icon: '🌳' },
-  carriere_slot_1:      { x: 360, y: 345, label: 'Carrière du Vallon',   icon: '🗿' },
-  carriere_slot_2:      { x: 470, y: 385, label: 'Carrière du Nord',     icon: '🗿' },
-  scierie_slot_1:       { x: 580, y: 345, label: 'Scierie Bois Neuf',    icon: '🪵' },
-  scierie_slot_2:       { x: 670, y: 388, label: 'Scierie des Hauteurs', icon: '🪵' },
+  farm_slot_1:       { x:  90, y: 350, label: 'Plaine des Oliviers',  icon: '🫒' },
+  farm_slot_2:       { x: 230, y: 385, label: 'Collines Fertiles',    icon: '🫒' },
+  extraction_slot_1: { x: 490, y: 350, label: 'Forêt du Bois Neuf',  icon: '🪵' },
+  extraction_slot_2: { x: 620, y: 388, label: 'Forêt des Hauteurs',  icon: '🪵' },
 }
 
 const EDGES: [string, string][] = [
-  // Apple → Artisanale
-  ['orchard_slot_1', 'market_slot_1'],
-  ['orchard_slot_2', 'market_slot_1'],
-  // Wood → Artisanale
-  ['scierie_slot_1', 'menuiserie_slot_1'],
-  ['scierie_slot_2', 'menuiserie_slot_1'],
-  ['scierie_slot_1', 'charpenterie_slot_1'],
-  // Artisanale → Capitale (wonders)
-  ['menuiserie_slot_1', 'cathedrale_slot'],
-  ['market_slot_1',     'wonder_slot'],
-  ['charpenterie_slot_1', 'cathedrale_slot'],
-  // Artisanale → Capitale (auberge — needs bois + pierre + or)
-  ['charpenterie_slot_1', 'auberge_slot_1'],
-  ['menuiserie_slot_1',   'auberge_slot_2'],
+  // Farm → Workshop
+  ['farm_slot_1',       'workshop_slot_1'],
+  ['farm_slot_2',       'workshop_slot_1'],
+  // Extraction → Workshop
+  ['extraction_slot_1', 'workshop_slot_2'],
+  ['extraction_slot_2', 'workshop_slot_2'],
+  // Workshop → Commercial
+  ['workshop_slot_1',   'commercial_slot_1'],
+  ['workshop_slot_2',   'commercial_slot_2'],
+  // Workshop → Wonders
+  ['workshop_slot_2',   'cathedrale_slot'],
+  ['workshop_slot_1',   'wonder_slot'],
 ]
 
 // ─── Zone bands ───────────────────────────────────────────────────────────────
@@ -86,8 +90,6 @@ const ZONES = [
 
 const svgW = 720
 const svgH = 460
-
-// Upgrade cost table visible in UI
 const UPGRADE_COSTS: Record<number, number> = { 1: 25, 2: 50, 3: 100, 4: 200 }
 
 export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }: Props) {
@@ -115,9 +117,6 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
   function getNodeInstance(nodeId: string) {
     return map.nodes.find(n => n.id === nodeId)?.buildingInstanceId
   }
-  function getNodeDef(nodeId: string) {
-    return map.nodes.find(n => n.id === nodeId)?.buildingDefId
-  }
   function getOwnerColor(owner?: GuildId | string) {
     if (!owner) return 'var(--text-muted)'
     return GUILD_COLORS[owner as GuildId] ?? 'var(--text-muted)'
@@ -126,7 +125,6 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
     if (owner === 'player') return 'rgba(76,138,201,0.45)'
     if (owner === 'brice')  return 'rgba(201,76,76,0.30)'
     if (owner === 'raph')   return 'rgba(155,89,182,0.30)'
-    if (owner === 'rita')   return 'rgba(230,126,34,0.30)'
     return 'rgba(18,18,36,0.88)'
   }
   function renderShareInfo(instanceId: string) {
@@ -138,18 +136,19 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
   }
 
   // Wonder progress
-  const tower      = wonders.find(w => w.id === 'tower_of_magic')!
-  const cathedrale = wonders.find(w => w.id === 'grande_cathedrale')!
-  const towerReq   = tower.requiredResources.apple ?? 800
-  const cathedReq  = cathedrale.requiredResources.wood ?? 400
-
-  const bestRivalTower  = Math.max(...rivals.map(r => tower.rivalContributed[r.id]?.apple ?? 0))
+  const cathedrale  = wonders.find(w => w.id === 'grande_cathedrale')!
+  const cathedReq   = cathedrale.requiredResources.wood ?? 400
   const bestRivalCathed = Math.max(...rivals.map(r => cathedrale.rivalContributed[r.id]?.wood ?? 0))
-
-  const towerPlayerPct  = Math.round(((tower.playerContributed.apple ?? 0) / towerReq) * 100)
-  const towerRivalPct   = Math.round((bestRivalTower / towerReq) * 100)
   const cathedPlayerPct = Math.round(((cathedrale.playerContributed.wood ?? 0) / cathedReq) * 100)
   const cathedRivalPct  = Math.round((bestRivalCathed / cathedReq) * 100)
+
+  const tower     = wonders.find(w => w.id === 'tower_of_magic')!
+  const towerReq  = tower.requiredResources.wood ?? tower.requiredResources.olive ?? 800
+  const bestRivalTower = Math.max(...rivals.map(r =>
+    (tower.rivalContributed[r.id]?.wood ?? 0) + (tower.rivalContributed[r.id]?.olive ?? 0)
+  ))
+  const towerPlayerPct = Math.round(((tower.playerContributed.wood ?? tower.playerContributed.olive ?? 0) / towerReq) * 100)
+  const towerRivalPct  = Math.round((bestRivalTower / towerReq) * 100)
 
   const leadingRival = rivals.reduce(
     (best, r) => (r.netWorthHistory.at(-1)?.value ?? 0) > (best.netWorthHistory.at(-1)?.value ?? 0) ? r : best,
@@ -186,8 +185,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
           const bOwner = getNodeOwner(to)
           const bothOwned = aOwner === 'player' && bOwner === 'player'
           return (
-            <line
-              key={i}
+            <line key={i}
               x1={a.x} y1={a.y} x2={b.x} y2={b.y}
               stroke={bothOwned ? 'rgba(76,175,106,0.40)' : 'rgba(201,168,76,0.12)'}
               strokeWidth={bothOwned ? 2 : 1.5}
@@ -202,62 +200,58 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
           const isLocked   = mapNode?.locked ?? false
           const owner      = isLocked ? undefined : getNodeOwner(nodeId)
           const instanceId = isLocked ? undefined : getNodeInstance(nodeId)
-          const defId      = isLocked ? undefined : getNodeDef(nodeId)
-          const color      = isLocked ? 'rgba(120,120,140,0.3)' : getOwnerColor(owner)
+          const slotType   = mapNode?.slotType
           const isWonder   = nodeId === 'wonder_slot' || nodeId === 'cathedrale_slot'
           const isTower    = nodeId === 'wonder_slot'
           const isCathed   = nodeId === 'cathedrale_slot'
 
-          const canBuy   = !isLocked && !owner && !!defId
-          const canShare = !isLocked && !!owner && owner !== 'player' && !!instanceId
-          const sharePreview = canShare ? previewBuyShare(state, instanceId!) : null
-
-          // Degradation
+          // Find the owned building def (by instance)
           const ownedBuilding = instanceId
             ? (player.buildings.find(b => b.instanceId === instanceId) ?? rivals.flatMap(r => r.buildings).find(b => b.instanceId === instanceId))
             : undefined
+          const buildingDef = ownedBuilding
+            ? (buildingDefs as any[]).find(d => d.id === ownedBuilding.defId)
+            : null
+          const defId = ownedBuilding?.defId as BuildingId | undefined
+
+          const color  = isLocked ? 'rgba(120,120,140,0.3)' : getOwnerColor(owner)
+          const canBuy   = !isLocked && !owner && !!slotType && !isWonder
+          const canShare = !isLocked && !!owner && owner !== 'player' && !!instanceId
+          const sharePreview = canShare ? previewBuyShare(state, instanceId!) : null
+
           const degradation = ownedBuilding?.degradation ?? 0
           const degradPct   = Math.round(degradation * 100)
 
-          // Production label
-          const buildingDef = defId ? (buildingDefs as any[]).find(d => d.id === defId) : null
           const level = ownedBuilding?.level ?? 1
           const baseProduction = buildingDef?.productionPerDay ?? 0
           const levelBonus = buildingDef?.upgradable && buildingDef?.produces ? (SAWMILL_PRODUCTION[level] / SAWMILL_PRODUCTION[1]) : 1
-          const effectiveProd = buildingDef?.productionPerDay
-            ? Math.round(baseProduction * levelBonus * (1 - degradation))
-            : 0
-          // Revenue: auberge uses AUBERGE_REVENUE table; others use flat revenuePerDay
+          const effectiveProd = baseProduction > 0 ? Math.round(baseProduction * levelBonus * (1 - degradation)) : 0
           const isAuberge = buildingDef?.id === 'auberge'
           const dailyRevenue = isAuberge
             ? (AUBERGE_REVENUE[level] ?? buildingDef?.revenuePerDay ?? 0)
             : (buildingDef?.revenuePerDay ?? 0)
-          const prodIcon = buildingDef?.produces === 'apple' ? '🍎'
-                         : buildingDef?.produces === 'wood'  ? '🪵'
-                         : buildingDef?.produces === 'pierre' ? '🗿'
-                         : buildingDef?.produces === 'meuble' ? '🪑'
-                         : null
+          const prodIcon  = buildingDef?.produces ? (RESOURCE_ICONS[buildingDef.produces] ?? null) : null
           const prodLabel = owner && !isWonder
-            ? (effectiveProd > 0 && prodIcon ? `+${effectiveProd} ${prodIcon}/j` : dailyRevenue > 0 ? `+${dailyRevenue}or/j` : null)
+            ? (effectiveProd > 0 && prodIcon ? `+${effectiveProd}${prodIcon}/j` : dailyRevenue > 0 ? `+${dailyRevenue}or/j` : null)
             : null
 
-          // Upgrade info
-          const isPlayerOwned = owner === 'player'
-          const isUpgradable = buildingDef?.upgradable && isPlayerOwned && instanceId
-          const maxLevel = buildingDef?.maxLevel ?? 5
-          // Gold upgrade (sawmill) vs CONFORT upgrade (auberge)
+          const isPlayerOwned   = owner === 'player'
+          const isUpgradable    = buildingDef?.upgradable && isPlayerOwned && instanceId
+          const maxLevel        = buildingDef?.maxLevel ?? 5
           const isConfortUpgrade = isUpgradable && !!buildingDef?.upgradeResourceId
-          const upgradeCost = !isConfortUpgrade && isUpgradable ? (UPGRADE_COSTS[level] ?? null) : null
-          const confortCost = isConfortUpgrade ? (buildingDef?.upgradeResourceCosts?.[String(level)] ?? null) : null
+          const upgradeCost     = !isConfortUpgrade && isUpgradable ? (UPGRADE_COSTS[level] ?? null) : null
+          const confortCost     = isConfortUpgrade ? (buildingDef?.upgradeResourceCosts?.[String(level)] ?? null) : null
           const canAffordUpgrade = upgradeCost != null && state.player.gold >= upgradeCost
           const canAffordConfort = confortCost != null && (state.player.inventory.meuble ?? 0) >= confortCost
 
-          // Wonder progress
           let pPct = 0, rPct = 0
           if (isTower)  { pPct = towerPlayerPct;  rPct = towerRivalPct }
           if (isCathed) { pPct = cathedPlayerPct; rPct = cathedRivalPct }
 
           const R = isWonder ? 28 : 22
+
+          // Available buildings for this slot (player choice)
+          const availableBuildings = canBuy && slotType ? getBuildingsForSlot(slotType) : []
 
           return (
             <g key={nodeId}>
@@ -276,32 +270,27 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 style={{ filter: owner ? `drop-shadow(0 0 10px ${color}70)` : undefined }}
               />
 
-              {/* Icon */}
               <text
                 x={pos.x} y={prodLabel ? pos.y + 2 : pos.y + 7}
                 textAnchor="middle" fontSize={isWonder ? 22 : 14}
                 opacity={isLocked ? 0.3 : 1}
               >{isLocked ? '🔒' : pos.icon}</text>
 
-              {/* Level badge (upgradable buildings) */}
               {owner && buildingDef?.upgradable && level > 1 && (
                 <text x={pos.x + R - 4} y={pos.y - R + 8} textAnchor="middle" fontSize={9}
                   fill="var(--accent)" fontFamily="var(--font-mono)">T{level}</text>
               )}
 
-              {/* Production label */}
               {prodLabel && (
                 <text x={pos.x} y={pos.y + 14} textAnchor="middle" fontSize={9}
                   fill={color} fontFamily="var(--font-mono)" opacity={0.9}>{prodLabel}</text>
               )}
 
-              {/* Node label */}
               <text
                 x={pos.x} y={pos.y + R + 13} textAnchor="middle" fontSize={10}
                 fill={isLocked ? 'rgba(120,120,140,0.4)' : 'var(--text-dim)'}
-              >{isLocked ? '— bientôt —' : pos.label}</text>
+              >{isLocked ? '— bientôt —' : (owner && buildingDef ? buildingDef.name : pos.label)}</text>
 
-              {/* Wonder progress */}
               {isWonder && (
                 <>
                   <text x={pos.x} y={pos.y + R + 25} textAnchor="middle" fontSize={10} fill="var(--player-color)" fontFamily="var(--font-mono)">Toi {pPct}%</text>
@@ -309,44 +298,38 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 </>
               )}
 
-              {/* Share info */}
               {owner && instanceId && !isWonder && (
                 <text x={pos.x} y={pos.y + R + 24} textAnchor="middle" fontSize={8} fill={color} fontFamily="var(--font-mono)">
                   {renderShareInfo(instanceId)}
                 </text>
               )}
 
-              {/* Degradation */}
               {!isLocked && !isWonder && degradPct >= 15 && (
                 <text x={pos.x} y={pos.y - R - 8} textAnchor="middle" fontSize={9} fill={degradPct >= 30 ? '#c96060' : '#c9a84c'}>
                   {degradPct >= 30 ? '🍂' : '🌿'} −{degradPct}%
                 </text>
               )}
 
-              {/* Buy building button */}
-              {canBuy && defId && (
-                <foreignObject x={pos.x - 60} y={pos.y + R + 14} width={120} height={22}>
+              {/* Buy building buttons — one per available building for this slot */}
+              {availableBuildings.map((bd, bi) => (
+                <foreignObject key={bd.id} x={pos.x - 60} y={pos.y + R + 14 + bi * 26} width={120} height={22}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', padding: '2px 0', fontSize: '0.62rem', opacity: canAffordBuilding(defId, state) ? 1 : 0.45 }}
-                    disabled={!canAffordBuilding(defId, state)}
-                    onClick={() => onBuyBuilding(defId as BuildingId)}
+                    style={{ width: '100%', padding: '2px 0', fontSize: '0.60rem', opacity: canAffordBuilding(bd.id, state) ? 1 : 0.45 }}
+                    disabled={!canAffordBuilding(bd.id, state)}
+                    onClick={() => onBuyBuilding(bd.id as BuildingId)}
                   >
-                    {getBuildingCostLabel(defId)} — Acheter
+                    {bd.name} {getBuildingCostLabel(bd.id)}
                   </button>
                 </foreignObject>
-              )}
+              ))}
 
               {/* Upgrade button — gold (sawmill) */}
               {isUpgradable && !isConfortUpgrade && level < maxLevel && upgradeCost != null && (
-                <foreignObject x={pos.x - 60} y={pos.y + R + (owner && instanceId ? 36 : 14)} width={120} height={22}>
+                <foreignObject x={pos.x - 60} y={pos.y + R + 36} width={120} height={22}>
                   <button
                     className="btn-secondary"
-                    style={{
-                      width: '100%', padding: '2px 0', fontSize: '0.62rem',
-                      borderColor: canAffordUpgrade ? 'var(--accent)' : undefined,
-                      opacity: canAffordUpgrade ? 1 : 0.45,
-                    }}
+                    style={{ width: '100%', padding: '2px 0', fontSize: '0.62rem', borderColor: canAffordUpgrade ? 'var(--accent)' : undefined, opacity: canAffordUpgrade ? 1 : 0.45 }}
                     disabled={!canAffordUpgrade}
                     onClick={() => onUpgradeBuilding(instanceId!)}
                   >
@@ -357,14 +340,10 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
 
               {/* Upgrade button — CONFORT/meubles (auberge) */}
               {isConfortUpgrade && level < maxLevel && confortCost != null && (
-                <foreignObject x={pos.x - 60} y={pos.y + R + (owner && instanceId ? 36 : 14)} width={120} height={22}>
+                <foreignObject x={pos.x - 60} y={pos.y + R + 36} width={120} height={22}>
                   <button
                     className="btn-secondary"
-                    style={{
-                      width: '100%', padding: '2px 0', fontSize: '0.62rem',
-                      borderColor: canAffordConfort ? '#e67e22' : undefined,
-                      opacity: canAffordConfort ? 1 : 0.45,
-                    }}
+                    style={{ width: '100%', padding: '2px 0', fontSize: '0.62rem', borderColor: canAffordConfort ? '#e67e22' : undefined, opacity: canAffordConfort ? 1 : 0.45 }}
                     disabled={!canAffordConfort}
                     onClick={() => onUpgradeBuilding(instanceId!)}
                   >
@@ -402,9 +381,9 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
         {leadingRival && rivalStrategies[leadingRival.id] && (
           <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.65rem' }}>
             ⚔ {leadingRival.name} → {
-              rivalStrategies[leadingRival.id]?.preferredResource === 'wood'   ? 'Bois' :
-              rivalStrategies[leadingRival.id]?.preferredResource === 'pierre' ? 'Pierre' :
-              rivalStrategies[leadingRival.id]?.preferredResource === 'meuble' ? 'Immobilier' : 'Pommes'
+              rivalStrategies[leadingRival.id]?.preferredResource === 'wood'  ? 'Bois' :
+              rivalStrategies[leadingRival.id]?.preferredResource === 'huile' ? 'Huile' :
+              rivalStrategies[leadingRival.id]?.preferredResource === 'meuble'? 'Immobilier' : 'Olives'
             }
           </span>
         )}

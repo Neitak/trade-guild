@@ -239,9 +239,11 @@ function addBuildingToMap(
   instanceId: string,
   owner: GuildId
 ): typeof state.map {
+  const def = (buildingDefs as any[]).find(b => b.id === defId)
+  const slotType = def?.slotType
   let assigned = false
   const nodes = state.map.nodes.map(node => {
-    if (!assigned && node.buildingDefId === defId && !node.ownedBy && !node.locked) {
+    if (!assigned && slotType && node.slotType === slotType && !node.ownedBy && !node.locked) {
       assigned = true
       return { ...node, ownedBy: owner, buildingInstanceId: instanceId }
     }

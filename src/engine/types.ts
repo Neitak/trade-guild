@@ -1,10 +1,12 @@
 // ─── Resources & Buildings ───────────────────────────────────────────────────
 
-export type ResourceId = 'apple' | 'wood' | 'pierre' | 'meuble'
+export type ResourceId = 'olive' | 'wood' | 'pierre' | 'meuble' | 'huile'
 
-export type ResourceCategory = 'CONSTRUCTION' | 'CONFORT' | 'LUXE'
+export type ResourceCategory = 'CONSTRUCTION' | 'CONFORT' | 'LUXE' | 'ALIMENTAIRE'
 
-export type BuildingId = 'orchard' | 'fruit_market' | 'sawmill' | 'menuiserie' | 'charpenterie' | 'carriere' | 'auberge'
+export type BuildingId = 'olivery' | 'press' | 'sawmill' | 'menuiserie' | 'auberge'
+
+export type SlotType = 'farm' | 'extraction' | 'workshop' | 'commercial'
 
 export type WonderId = 'tower_of_magic' | 'grande_cathedrale'
 
@@ -16,6 +18,7 @@ export interface BuildingDef {
   name: string
   tier: BuildingTier
   zone?: BuildingZone
+  slotType?: SlotType
   costGold?: number
   costResources?: Partial<Record<ResourceId, number>>
   produces?: ResourceId
@@ -149,8 +152,8 @@ export interface MapNode {
   y: number
   zone?: BuildingZone
   type: 'resource' | 'commercial' | 'wonder'
+  slotType?: SlotType
   resourceId?: ResourceId
-  buildingDefId?: BuildingId
   ownedBy?: GuildId
   buildingInstanceId?: string
   locked?: boolean

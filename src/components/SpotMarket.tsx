@@ -19,7 +19,7 @@ function formatGold(g: number): string {
 }
 
 // ─── Resource meta ────────────────────────────────────────────────────────────
-const RESOURCE_META: Record<ResourceId, {
+const RESOURCE_META: Partial<Record<ResourceId, {
   label: string
   icon: string
   chartHex: string
@@ -29,18 +29,7 @@ const RESOURCE_META: Record<ResourceId, {
   wonderName?: string
   dumpThreshold: number
   category: string
-}> = {
-  apple: {
-    label: 'Pommes',
-    icon: '🍎',
-    chartHex: '#c9a84c',
-    chartColor: 'var(--accent)',
-    gradientId: 'priceGradientApple',
-    wonderId: 'tower_of_magic',
-    wonderName: 'Tour de Magie',
-    dumpThreshold: 20,
-    category: 'CONFORT',
-  },
+}>> = {
   wood: {
     label: 'Bois',
     icon: '🪵',
@@ -52,23 +41,32 @@ const RESOURCE_META: Record<ResourceId, {
     dumpThreshold: 5,
     category: 'CONSTRUCTION',
   },
-  pierre: {
-    label: 'Pierre',
-    icon: '🗿',
-    chartHex: '#8a7a60',
-    chartColor: '#a09070',
-    gradientId: 'priceGradientPierre',
-    dumpThreshold: 15,
-    category: 'CONSTRUCTION',
+  olive: {
+    label: 'Olives',
+    icon: '🫒',
+    chartHex: '#8bc34a',
+    chartColor: '#8bc34a',
+    gradientId: 'priceGradientOlive',
+    dumpThreshold: 20,
+    category: 'ALIMENTAIRE',
   },
   meuble: {
-    label: 'Meuble',
+    label: 'Meubles',
     icon: '🪑',
     chartHex: '#9b59b6',
     chartColor: '#b07ec8',
     gradientId: 'priceGradientMeuble',
     dumpThreshold: 5,
     category: 'CONFORT',
+  },
+  huile: {
+    label: "Huile d'olive",
+    icon: '🫙',
+    chartHex: '#c9a84c',
+    chartColor: 'var(--accent)',
+    gradientId: 'priceGradientHuile',
+    dumpThreshold: 5,
+    category: 'LUXE',
   },
 }
 
@@ -141,6 +139,7 @@ interface CardProps {
 
 function ResourceCard({ resourceId, resourceMarket, state, onSell, onBuy, onContribute: _onContribute }: CardProps) {
   const [timeframe, setTimeframe] = useState<'today' | 'all'>('today')
+  const meta = RESOURCE_META[resourceId] ?? { label: resourceId, icon: '?', chartHex: '#888', chartColor: '#888', gradientId: 'priceGradientDefault', dumpThreshold: 5, category: '' }
 
   // ── Live tick history (for "Aujourd'hui" chart) ──
   const [liveHistory, setLiveHistory] = useState<{ t: number; price: number }[]>(() => [
@@ -167,7 +166,6 @@ function ResourceCard({ resourceId, resourceMarket, state, onSell, onBuy, onCont
     }
   }, [resourceMarket.currentPrice])
 
-  const meta       = RESOURCE_META[resourceId]
   const { player } = state
   const fullHistory = resourceMarket.priceHistory
   const playerQty  = player.inventory[resourceId] ?? 0
@@ -634,31 +632,36 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
   const [selectedResource, setSelectedResource] = useState<ResourceId>('wood')
 
   const playerWood  = state.player.inventory['wood'] ?? 0
+  const playerOlive = state.player.inventory['olive'] ?? 0
   const phase0Done  = playerWood >= PHASE0_WOOD_GOAL
 
-  const hasScierie    = state.player.buildings.some(b => b.defId === 'sawmill')
+  const hasBucheron  = state.player.buildings.some(b => b.defId === 'sawmill')
   const hasMenuiserie = state.player.buildings.some(b => b.defId === 'menuiserie')
-  const hasCharpenterie = state.player.buildings.some(b => b.defId === 'charpenterie')
+  const hasOlivery   = state.player.buildings.some(b => b.defId === 'olivery')
+  const hasPress     = state.player.buildings.some(b => b.defId === 'press')
   const MENUISERIE_WOOD_COST = 80
+  const PRESS_OLIVE_COST = 80
   const menuiserieProgress = Math.min(playerWood / MENUISERIE_WOOD_COST * 100, 100)
+  const pressProgress = Math.min(playerOlive / PRESS_OLIVE_COST * 100, 100)
 
   // Sawmill level → actual daily production
-  const scierieBuilding = state.player.buildings.find(b => b.defId === 'sawmill')
-  const scierieLevel = scierieBuilding?.level ?? 1
-  const scierieProduction = SAWMILL_PRODUCTION[scierieLevel] ?? 8
+  const bucheronBuilding = state.player.buildings.find(b => b.defId === 'sawmill')
+  const bucheronLevel = bucheronBuilding?.level ?? 1
+  const bucheronProduction = SAWMILL_PRODUCTION[bucheronLevel] ?? 8
 
-  // Active resource tabs
-  const raphActive = !!state.rivalStrategies['raph']
-  const hasPierre = raphActive || (state.player.inventory['pierre'] ?? 0) > 0
-  const hasMeuble = hasCharpenterie || (state.player.inventory['meuble'] ?? 0) > 0
+  // Active resource tabs — always show wood; show olive/huile/meuble when relevant
+  const hasOliveActivity = hasOlivery || (state.player.inventory['olive'] ?? 0) > 0 || !!state.rivalStrategies['raph']
+  const hasHuileActivity = hasPress || (state.player.inventory['huile'] ?? 0) > 0
+  const hasMeubleActivity = hasMenuiserie || (state.player.inventory['meuble'] ?? 0) > 0
 
   const activeResources: ResourceId[] = ['wood']
-  if (hasPierre) activeResources.push('pierre')
-  if (hasMeuble) activeResources.push('meuble')
+  if (hasOliveActivity) activeResources.push('olive')
+  if (hasMeubleActivity) activeResources.push('meuble')
+  if (hasHuileActivity) activeResources.push('huile')
 
   // Auto-switch to wood if selected resource becomes inactive
   const effectiveSelected = activeResources.includes(selectedResource) ? selectedResource : 'wood'
-  const meta = RESOURCE_META[effectiveSelected]
+  const meta = RESOURCE_META[effectiveSelected] ?? RESOURCE_META['wood']!
   const wonderId = meta.wonderId
 
   return (
@@ -685,7 +688,7 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
       {activeResources.length > 1 && (
         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
           {activeResources.map(rid => {
-            const m        = RESOURCE_META[rid]
+            const m        = RESOURCE_META[rid] ?? RESOURCE_META['wood']!
             const selected = rid === effectiveSelected
             const mkt      = state.market.resources[rid]
             const qty      = state.player.inventory[rid] ?? 0
@@ -787,7 +790,7 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
             display: 'flex', justifyContent: 'space-between',
             fontSize: '0.78rem', fontFamily: 'var(--font-mono)', marginBottom: 6, color: 'var(--text-muted)',
           }}>
-            <span>🪵 Objectif Scierie</span>
+            <span>🪵 Objectif Bûcheron</span>
             <span style={{ color: 'var(--text-dim)' }}>{playerWood} / {PHASE0_WOOD_GOAL}</span>
           </div>
           <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
@@ -799,102 +802,94 @@ export function SpotMarket({ state, onSell, onBuy, onContribute, onBuyBuilding }
             }} />
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'center', lineHeight: 1.4 }}>
-            Encore {PHASE0_WOOD_GOAL - playerWood} bois pour construire
+            Encore {PHASE0_WOOD_GOAL - playerWood} bois pour débloquer le Bûcheron
           </div>
         </div>
       )}
 
-      {/* ── Phase 1 — acheter Scierie ── */}
-      {phase0Done && !hasScierie && (
+      {/* ── Phase 1 — acheter Bûcheron ── */}
+      {phase0Done && !hasBucheron && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, flexShrink: 0 }}>
           <div style={{ fontSize: '0.72rem', color: 'var(--accent)', fontFamily: 'var(--font-ui)', letterSpacing: '0.06em', marginBottom: 6 }}>
-            ✦ Scierie débloquée
+            ✦ Bûcheron débloqué
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 8, lineHeight: 1.4 }}>
             Automatise ta production — +8 🪵/jour
           </div>
           <button
             className="btn-primary"
-            style={{ width: '100%', fontSize: '0.82rem', padding: '8px 0', opacity: state.player.gold >= 15 ? 1 : 0.55 }}
-            disabled={state.player.gold < 15}
+            style={{ width: '100%', fontSize: '0.82rem', padding: '8px 0', opacity: playerWood >= 10 ? 1 : 0.55 }}
+            disabled={playerWood < 10}
             onClick={() => onBuyBuilding('sawmill')}
           >
-            🪚 Scierie — 15 or
-            {state.player.gold < 15 && (
+            🪵 Bûcheron — 10 🪵
+            {playerWood < 10 && (
               <span style={{ fontSize: '0.72rem', marginLeft: 6, color: 'rgba(255,255,255,0.5)' }}>
-                (manque {(15 - state.player.gold).toFixed(1)} or)
+                (manque {10 - playerWood} 🪵)
               </span>
             )}
           </button>
         </div>
       )}
 
-      {/* ── Phase 1 active — Scierie + Menuiserie progression ── */}
-      {hasScierie && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, flexShrink: 0 }}>
-          <div style={{
-            display: 'flex', justifyContent: 'space-between',
-            fontSize: '0.78rem', fontFamily: 'var(--font-mono)', marginBottom: 4, color: 'var(--success)',
-          }}>
-            <span>🪚 Scierie T{scierieLevel}</span>
-            <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>+{scierieProduction} 🪵/jour</span>
+      {/* ── Phase 1 active — Bûcheron + filières ── */}
+      {hasBucheron && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: 'var(--success)' }}>
+            <span>🪵 Bûcheron T{bucheronLevel}</span>
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>+{bucheronProduction} 🪵/jour</span>
           </div>
 
+          {/* Menuiserie progress */}
           {!hasMenuiserie && (
             <>
-              <div style={{
-                display: 'flex', justifyContent: 'space-between',
-                fontSize: '0.75rem', fontFamily: 'var(--font-mono)', marginBottom: 5, color: 'var(--text-muted)',
-              }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                 <span>🏭 Menuiserie</span>
-                <span style={{ color: 'var(--text-dim)' }}>
-                  {Math.min(playerWood, MENUISERIE_WOOD_COST)} / {MENUISERIE_WOOD_COST} 🪵
-                </span>
+                <span>{Math.min(playerWood, MENUISERIE_WOOD_COST)} / {MENUISERIE_WOOD_COST} 🪵</span>
               </div>
-              <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-                <div style={{
-                  height: '100%', width: `${menuiserieProgress}%`,
-                  background: 'linear-gradient(90deg, #c9a84c, #8a6e28)',
-                  borderRadius: 3, transition: 'width 0.4s ease',
-                }} />
+              <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${menuiserieProgress}%`, background: 'linear-gradient(90deg,#c9a84c,#8a6e28)', borderRadius: 2, transition: 'width 0.4s ease' }} />
               </div>
-              {playerWood >= MENUISERIE_WOOD_COST ? (
-                <button
-                  className="btn-primary"
-                  style={{ width: '100%', fontSize: '0.82rem', padding: '8px 0' }}
-                  onClick={() => onBuyBuilding('menuiserie')}
-                >
-                  🏭 Construire Menuiserie — {MENUISERIE_WOOD_COST} 🪵
+              {playerWood >= MENUISERIE_WOOD_COST && (
+                <button className="btn-primary" style={{ width: '100%', fontSize: '0.82rem', padding: '8px 0' }} onClick={() => onBuyBuilding('menuiserie')}>
+                  🏭 Menuiserie — {MENUISERIE_WOOD_COST} 🪵
                 </button>
-              ) : (
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'center', lineHeight: 1.4 }}>
-                  Encore {MENUISERIE_WOOD_COST - playerWood} 🪵 pour la Menuiserie
-                </div>
               )}
             </>
           )}
-
           {hasMenuiserie && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-              <div style={{ fontSize: '0.72rem', color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>
-                ✓ Menuiserie +35 or/j
-              </div>
-              {hasCharpenterie && (
-                <div style={{ fontSize: '0.72rem', color: '#b07ec8', fontFamily: 'var(--font-mono)' }}>
-                  ✓ Charpenterie +2 🪑/j
-                </div>
-              )}
+            <div style={{ fontSize: '0.72rem', color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>
+              ✓ Menuiserie — 4🪵/j → 1🪑/j
             </div>
           )}
 
-          {/* Phase 2 hint — Charpenterie disponible */}
-          {hasMenuiserie && !hasCharpenterie && (
-            <div style={{
-              marginTop: 8,
-              fontSize: '0.72rem', color: 'var(--accent)', fontFamily: 'var(--font-ui)',
-              letterSpacing: '0.05em', lineHeight: 1.4,
-            }}>
-              ✦ Atelier Charron disponible (Carte → Zone Artisanale)
+          {/* Oliveraie hint */}
+          {!hasOlivery && (
+            <div style={{ fontSize: '0.72rem', color: 'var(--accent)', fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
+              ✦ Oliveraie disponible (Carte → Zone Champs)
+            </div>
+          )}
+
+          {/* Presse progress */}
+          {hasOlivery && !hasPress && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                <span>🫙 Presse</span>
+                <span>{Math.min(playerOlive, PRESS_OLIVE_COST)} / {PRESS_OLIVE_COST} 🫒</span>
+              </div>
+              <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pressProgress}%`, background: 'linear-gradient(90deg,#8bc34a,#5a8a28)', borderRadius: 2, transition: 'width 0.4s ease' }} />
+              </div>
+              {playerOlive >= PRESS_OLIVE_COST && (
+                <button className="btn-primary" style={{ width: '100%', fontSize: '0.82rem', padding: '8px 0' }} onClick={() => onBuyBuilding('press')}>
+                  🫙 Presse — {PRESS_OLIVE_COST} 🫒
+                </button>
+              )}
+            </>
+          )}
+          {hasPress && (
+            <div style={{ fontSize: '0.72rem', color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>
+              ✓ Presse — 3🫒/j → 1🫙/j
             </div>
           )}
         </div>

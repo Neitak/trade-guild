@@ -2,10 +2,10 @@ import type { GameState, GameEvent, ResourceId, MarketState, ResourceMarket, Bui
 import { getRival, updateRival } from './types'
 
 const PRODUCERS: Partial<Record<ResourceId, BuildingId[]>> = {
-  apple:  ['orchard'],
   wood:   ['sawmill'],
-  pierre: ['carriere'],
-  meuble: [],   // produced by Atelier, not a raw extractor
+  olive:  ['olivery'],
+  meuble: [],
+  huile:  [],
 }
 
 function producerDefsFor(id: ResourceId): BuildingId[] {
