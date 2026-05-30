@@ -1,5 +1,6 @@
 # Trade Guild — CLAUDE.md
 Claude MUST update this doc when design decisions change.
+Gameplay screen schema by me: "D:\Game Dev\Trade Guild\references\schema-ecran-jeu-v6.png"
 
 ## Session start protocol
 **Lis `references/` au début de chaque session** si le travail touche l'économie, les ressources ou les bâtiments. Ces fichiers sont la mémoire de travail du joueur — il les a écrits pour ne pas avoir à répéter. Ne jamais les ignorer.

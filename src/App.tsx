@@ -96,7 +96,7 @@ export default function App() {
     }}>
       {/* ── LEFT SIDEBAR — Spot Market (permanent, always visible) ── */}
       <aside style={{
-        width: 300,
+        width: 390,
         flexShrink: 0,
         overflowY: 'auto',
         borderRight: '1px solid var(--border)',
