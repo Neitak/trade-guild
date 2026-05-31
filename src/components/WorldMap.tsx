@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import type { GameState, BuildingId, GuildId, SlotType } from '../engine/types'
 import { GUILD_COLORS } from '../engine/types'
 import { previewBuyShare, EFFECTIVE_CONTROL_THRESHOLD } from '../engine/shares'
@@ -331,6 +331,13 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
     rivals[0]
   )
 
+  // Node action buttons render as a DOM overlay (NOT foreignObject) so text never
+  // clips — a div sizes to its content. Collected during the node map, drawn after.
+  const nodeButtons: {
+    key: string; svgX: number; svgY: number; stack: number
+    content: ReactNode; color?: string; disabled?: boolean; title?: string; onClick?: () => void
+  }[] = []
+
   return (
     <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%', background: 'var(--bg-panel)', border: '1px solid var(--edge-soft)' }}>
       <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: '0.72rem', color: 'var(--text-muted)', letterSpacing: '0.22em', textTransform: 'uppercase' }}>
@@ -455,6 +462,58 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
             }
           }
 
+          // ── Collect DOM-overlay action buttons (anchored just below the node) ──
+          const btnAnchorY = pos.y + R + 24
+          if (availableBuildings.length > 1) {
+            availableBuildings.forEach((bd, bi) => {
+              const aff = canAffordBuilding(bd.id, state)
+              nodeButtons.push({
+                key: `${nodeId}-buy-${bd.id}`,
+                svgX: pos.x, svgY: btnAnchorY, stack: bi,
+                color: aff ? 'rgba(96,160,224,0.35)' : undefined,
+                disabled: !aff,
+                onClick: () => onBuyBuilding(bd.id as BuildingId),
+                content: (
+                  <>
+                    <span style={{ fontSize: '0.66rem', lineHeight: 1.1 }}>{bd.name}</span>
+                    <span style={{ fontSize: '0.54rem', opacity: 0.7, fontFamily: 'var(--font-num)', lineHeight: 1.1 }}>{getBuildingCostLabel(bd.id)}</span>
+                  </>
+                ),
+              })
+            })
+          }
+          if (isUpgradable && !isConfortUpgrade && level < maxLevel && upgradeCost != null) {
+            nodeButtons.push({
+              key: `${nodeId}-upg`,
+              svgX: pos.x, svgY: btnAnchorY, stack: 0,
+              color: canAffordUpgrade ? 'var(--accent)' : undefined,
+              disabled: !canAffordUpgrade,
+              onClick: () => onUpgradeBuilding(instanceId!),
+              content: <span style={{ fontFamily: 'var(--font-num)' }}>↑ T{level + 1} — {upgradeCost}or</span>,
+            })
+          }
+          if (isConfortUpgrade && level < maxLevel && confortCost != null) {
+            nodeButtons.push({
+              key: `${nodeId}-cfu`,
+              svgX: pos.x, svgY: btnAnchorY, stack: 0,
+              color: canAffordConfort ? 'rgba(232,192,105,0.6)' : undefined,
+              disabled: !canAffordConfort,
+              onClick: () => onUpgradeBuilding(instanceId!),
+              content: <span style={{ fontFamily: 'var(--font-num)' }}>↑ T{level + 1} — {confortCost}🪑</span>,
+            })
+          }
+          if (sharePreview) {
+            nodeButtons.push({
+              key: `${nodeId}-share`,
+              svgX: pos.x, svgY: btnAnchorY, stack: 0,
+              color: sharePreview.ownerColor,
+              disabled: !sharePreview.canAfford,
+              title: `Acheter 10% de ${sharePreview.ownerName} pour ${sharePreview.cost}or → +${sharePreview.playerCutPerDay}/j`,
+              onClick: () => onBuyShare(instanceId!),
+              content: <span style={{ fontFamily: 'var(--font-num)' }}>Part 10% — {sharePreview.cost}or (+{sharePreview.playerCutPerDay}/j)</span>,
+            })
+          }
+
           return (
             <g key={nodeId}>
               {pulsingNodes.has(nodeId) && (
@@ -535,68 +594,8 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 </text>
               )}
 
-              {/* Buy building buttons — workshops with 2 buildings keep inline buttons.
-                  foreignObject content scales with the SVG → counter-scale by `inv`
-                  to keep a true ~140×26px button regardless of map zoom. */}
-              {availableBuildings.length > 1 && availableBuildings.map((bd, bi) => {
-                const aff = canAffordBuilding(bd.id, state)
-                return (
-                <foreignObject key={bd.id} x={pos.x - 70 * inv} y={pos.y + R + 22 + bi * 30 * inv} width={140 * inv} height={26 * inv}>
-                  <button
-                    className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: `${2 * inv}px ${4 * inv}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, borderRadius: 6 * inv, opacity: aff ? 1 : 0.45, borderColor: aff ? 'rgba(96,160,224,0.35)' : undefined }}
-                    disabled={!aff}
-                    onClick={() => onBuyBuilding(bd.id as BuildingId)}
-                  >
-                    <span style={{ fontSize: `${0.62 * inv}rem`, lineHeight: 1.15, whiteSpace: 'nowrap' }}>{bd.name}</span>
-                    <span style={{ fontSize: `${0.5 * inv}rem`, opacity: 0.70, lineHeight: 1.15, fontFamily: 'var(--font-num)' }}>{getBuildingCostLabel(bd.id)}</span>
-                  </button>
-                </foreignObject>
-                )
-              })}
-
-              {/* Upgrade button — gold (sawmill) */}
-              {isUpgradable && !isConfortUpgrade && level < maxLevel && upgradeCost != null && (
-                <foreignObject x={pos.x - 70 * inv} y={pos.y + R + 44} width={140 * inv} height={22 * inv}>
-                  <button
-                    className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: `${2 * inv}px ${4 * inv}px`, fontSize: `${0.58 * inv}rem`, borderRadius: 6 * inv, borderColor: canAffordUpgrade ? 'var(--accent)' : undefined, opacity: canAffordUpgrade ? 1 : 0.45, fontFamily: 'var(--font-num)' }}
-                    disabled={!canAffordUpgrade}
-                    onClick={() => onUpgradeBuilding(instanceId!)}
-                  >
-                    ↑ T{level + 1} — {upgradeCost}or
-                  </button>
-                </foreignObject>
-              )}
-
-              {/* Upgrade button — CONFORT/meubles (auberge) */}
-              {isConfortUpgrade && level < maxLevel && confortCost != null && (
-                <foreignObject x={pos.x - 70 * inv} y={pos.y + R + 44} width={140 * inv} height={22 * inv}>
-                  <button
-                    className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: `${2 * inv}px ${4 * inv}px`, fontSize: `${0.58 * inv}rem`, borderRadius: 6 * inv, borderColor: canAffordConfort ? 'rgba(232,192,105,0.6)' : undefined, opacity: canAffordConfort ? 1 : 0.45, fontFamily: 'var(--font-num)' }}
-                    disabled={!canAffordConfort}
-                    onClick={() => onUpgradeBuilding(instanceId!)}
-                  >
-                    ↑ T{level + 1} — {confortCost}🪑
-                  </button>
-                </foreignObject>
-              )}
-
-              {/* Buy share button */}
-              {sharePreview && (
-                <foreignObject x={pos.x - 70 * inv} y={pos.y + R + 44} width={140 * inv} height={22 * inv}>
-                  <button
-                    className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: `${2 * inv}px ${4 * inv}px`, fontSize: `${0.58 * inv}rem`, borderRadius: 6 * inv, borderColor: sharePreview.ownerColor, fontFamily: 'var(--font-num)' }}
-                    title={`Acheter 10% de ${sharePreview.ownerName} pour ${sharePreview.cost}or → +${sharePreview.playerCutPerDay}/j`}
-                    onClick={() => onBuyShare(instanceId!)}
-                    disabled={!sharePreview.canAfford}
-                  >
-                    Part 10% — {sharePreview.cost}or (+{sharePreview.playerCutPerDay}/j)
-                  </button>
-                </foreignObject>
-              )}
+              {/* Action buttons (buy / upgrade / share) are rendered as a DOM overlay
+                  below the SVG — see {nodeButtons} map. foreignObject clips text. */}
             </g>
           )
         })}
@@ -625,6 +624,39 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
           )
         })}
       </svg>
+
+      {/* Node action buttons — DOM overlay, true pixel size, never clips text */}
+      {nodeButtons.map(b => {
+        const p = svgPointToDOM(b.svgX, b.svgY)
+        if (!p) return null
+        return (
+          <button
+            key={b.key}
+            className="btn-secondary"
+            style={{
+              position: 'absolute',
+              left: p.x,
+              top: p.y + b.stack * 28,
+              transform: 'translateX(-50%)',
+              whiteSpace: 'nowrap',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              lineHeight: 1.15,
+              padding: '3px 9px',
+              fontSize: '0.62rem',
+              borderRadius: 6,
+              borderColor: b.color,
+              opacity: b.disabled ? 0.45 : 1,
+              pointerEvents: 'auto',
+              zIndex: 5,
+            }}
+            disabled={b.disabled}
+            title={b.title}
+            onClick={b.onClick}
+          >
+            {b.content}
+          </button>
+        )
+      })}
 
       {/* FloatCard overlay */}
       {hoveredNode && (
