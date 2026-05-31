@@ -214,6 +214,27 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
   }
 
   useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current) }, [])
+
+  // ─── Responsive viewBox — fill the available container height ────────────────
+  const [dims, setDims] = useState({ w: svgW, h: svgH })
+  useEffect(() => {
+    const el = wrapperRef.current
+    if (!el) return
+    const ro = new ResizeObserver(entries => {
+      const cr = entries[0].contentRect
+      if (cr.width > 0 && cr.height > 0) setDims({ w: cr.width, h: cr.height })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Uniform render scale (user units → screen px) and vertical spread factor.
+  const s       = dims.w / svgW
+  const viewH   = Math.max(svgH, svgW * dims.h / dims.w)
+  const vSpread = viewH / svgH
+  // foreignObject content scales with the SVG — counter-scale to keep true px size.
+  const inv     = 1 / s
+
   useEffect(() => {
     const prev = prevNodesRef.current
     const newlyOwned = map.nodes
@@ -272,29 +293,34 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
       </h2>
 
       <div ref={wrapperRef} style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-      <svg ref={svgRef} width="100%" height="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ borderRadius: 8, display: 'block' }}>
+      <svg ref={svgRef} width="100%" height="100%" viewBox={`0 0 ${svgW} ${viewH}`} style={{ borderRadius: 8, display: 'block' }}>
         <defs>
           <radialGradient id="nodeFillGrad" cx="38%" cy="32%" r="70%">
             <stop offset="0%" stopColor="#16304c"/>
             <stop offset="100%" stopColor="#0c1827"/>
           </radialGradient>
         </defs>
-        <rect x={0} y={0} width={svgW} height={svgH} fill="#070d16" />
+        <rect x={0} y={0} width={svgW} height={viewH} fill="#070d16" />
 
         {/* Zone bands */}
-        {ZONES.map(z => (
+        {ZONES.map(z => {
+          const yStart = z.yStart * vSpread
+          const yEnd   = z.yEnd * vSpread
+          return (
           <g key={z.label}>
-            <rect x={0} y={z.yStart} width={svgW} height={z.yEnd - z.yStart} fill={z.color} />
-            <rect x={0} y={z.yEnd}   width={svgW} height={1} fill="rgba(96,160,224,0.12)" />
-            <text x={10} y={z.yStart + 14} fontSize={9} fill="rgba(96,160,224,0.40)" fontFamily="var(--font-ui)" letterSpacing="0.18em">
+            <rect x={0} y={yStart} width={svgW} height={yEnd - yStart} fill={z.color} />
+            <rect x={0} y={yEnd}   width={svgW} height={1} fill="rgba(96,160,224,0.12)" />
+            <text x={10} y={yStart + 16} fontSize={9 * inv} fill="rgba(96,160,224,0.40)" fontFamily="var(--font-ui)" letterSpacing="0.18em">
               {z.label}
             </text>
           </g>
-        ))}
+          )
+        })}
 
 
         {/* Nodes */}
-        {Object.entries(NODE_POSITIONS).map(([nodeId, pos]) => {
+        {Object.entries(NODE_POSITIONS).map(([nodeId, basePos]) => {
+          const pos = { ...basePos, y: basePos.y * vSpread }
           const mapNode    = map.nodes.find(n => n.id === nodeId)
           const isLocked   = mapNode?.locked ?? false
           const owner      = isLocked ? undefined : getNodeOwner(nodeId)
@@ -464,27 +490,32 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 </text>
               )}
 
-              {/* Buy building buttons — workshops with 2 buildings keep inline buttons */}
-              {availableBuildings.length > 1 && availableBuildings.map((bd, bi) => (
-                <foreignObject key={bd.id} x={pos.x - 72} y={pos.y + R + 14 + bi * 36} width={144} height={30}>
+              {/* Buy building buttons — workshops with 2 buildings keep inline buttons.
+                  foreignObject content scales with the SVG → counter-scale by `inv`
+                  to keep a true ~140×26px button regardless of map zoom. */}
+              {availableBuildings.length > 1 && availableBuildings.map((bd, bi) => {
+                const aff = canAffordBuilding(bd.id, state)
+                return (
+                <foreignObject key={bd.id} x={pos.x - 70 * inv} y={pos.y + R + 22 + bi * 30 * inv} width={140 * inv} height={26 * inv}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: '2px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, opacity: canAffordBuilding(bd.id, state) ? 1 : 0.45, borderColor: canAffordBuilding(bd.id, state) ? 'rgba(96,160,224,0.35)' : undefined }}
-                    disabled={!canAffordBuilding(bd.id, state)}
+                    style={{ width: '100%', height: '100%', padding: `${2 * inv}px ${4 * inv}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, borderRadius: 6 * inv, opacity: aff ? 1 : 0.45, borderColor: aff ? 'rgba(96,160,224,0.35)' : undefined }}
+                    disabled={!aff}
                     onClick={() => onBuyBuilding(bd.id as BuildingId)}
                   >
-                    <span style={{ fontSize: '0.62rem', lineHeight: 1.2 }}>{bd.name}</span>
-                    <span style={{ fontSize: '0.52rem', opacity: 0.70, lineHeight: 1.2, fontFamily: 'var(--font-num)' }}>{getBuildingCostLabel(bd.id)}</span>
+                    <span style={{ fontSize: `${0.62 * inv}rem`, lineHeight: 1.15, whiteSpace: 'nowrap' }}>{bd.name}</span>
+                    <span style={{ fontSize: `${0.5 * inv}rem`, opacity: 0.70, lineHeight: 1.15, fontFamily: 'var(--font-num)' }}>{getBuildingCostLabel(bd.id)}</span>
                   </button>
                 </foreignObject>
-              ))}
+                )
+              })}
 
               {/* Upgrade button — gold (sawmill) */}
               {isUpgradable && !isConfortUpgrade && level < maxLevel && upgradeCost != null && (
-                <foreignObject x={pos.x - 72} y={pos.y + R + 52} width={144} height={24}>
+                <foreignObject x={pos.x - 70 * inv} y={pos.y + R + 44} width={140 * inv} height={22 * inv}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: canAffordUpgrade ? 'var(--accent)' : undefined, opacity: canAffordUpgrade ? 1 : 0.45, fontFamily: 'var(--font-num)' }}
+                    style={{ width: '100%', height: '100%', padding: `${2 * inv}px ${4 * inv}px`, fontSize: `${0.58 * inv}rem`, borderRadius: 6 * inv, borderColor: canAffordUpgrade ? 'var(--accent)' : undefined, opacity: canAffordUpgrade ? 1 : 0.45, fontFamily: 'var(--font-num)' }}
                     disabled={!canAffordUpgrade}
                     onClick={() => onUpgradeBuilding(instanceId!)}
                   >
@@ -495,10 +526,10 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
 
               {/* Upgrade button — CONFORT/meubles (auberge) */}
               {isConfortUpgrade && level < maxLevel && confortCost != null && (
-                <foreignObject x={pos.x - 72} y={pos.y + R + 52} width={144} height={24}>
+                <foreignObject x={pos.x - 70 * inv} y={pos.y + R + 44} width={140 * inv} height={22 * inv}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: canAffordConfort ? 'rgba(232,192,105,0.6)' : undefined, opacity: canAffordConfort ? 1 : 0.45, fontFamily: 'var(--font-num)' }}
+                    style={{ width: '100%', height: '100%', padding: `${2 * inv}px ${4 * inv}px`, fontSize: `${0.58 * inv}rem`, borderRadius: 6 * inv, borderColor: canAffordConfort ? 'rgba(232,192,105,0.6)' : undefined, opacity: canAffordConfort ? 1 : 0.45, fontFamily: 'var(--font-num)' }}
                     disabled={!canAffordConfort}
                     onClick={() => onUpgradeBuilding(instanceId!)}
                   >
@@ -509,10 +540,10 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
 
               {/* Buy share button */}
               {sharePreview && (
-                <foreignObject x={pos.x - 72} y={pos.y + R + 52} width={144} height={24}>
+                <foreignObject x={pos.x - 70 * inv} y={pos.y + R + 44} width={140 * inv} height={22 * inv}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: sharePreview.ownerColor, fontFamily: 'var(--font-num)' }}
+                    style={{ width: '100%', height: '100%', padding: `${2 * inv}px ${4 * inv}px`, fontSize: `${0.58 * inv}rem`, borderRadius: 6 * inv, borderColor: sharePreview.ownerColor, fontFamily: 'var(--font-num)' }}
                     title={`Acheter 10% de ${sharePreview.ownerName} pour ${sharePreview.cost}or → +${sharePreview.playerCutPerDay}/j`}
                     onClick={() => onBuyShare(instanceId!)}
                     disabled={!sharePreview.canAfford}
