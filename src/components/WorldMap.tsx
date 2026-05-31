@@ -4,7 +4,6 @@ import { GUILD_COLORS } from '../engine/types'
 import { previewBuyShare, EFFECTIVE_CONTROL_THRESHOLD } from '../engine/shares'
 import { SAWMILL_PRODUCTION, AUBERGE_REVENUE } from '../engine/buildings'
 import buildingDefs from '../data/buildings.json'
-import bgMap from '../../images/bg01.png'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -100,20 +99,121 @@ const EDGES: [string, string][] = [
 
 // ─── Zone bands ───────────────────────────────────────────────────────────────
 const ZONES = [
-  { label: 'LA CAPITALE',          yStart: 0,   yEnd: 118, color: 'rgba(201,168,76,0.04)' },
-  { label: 'ZONE ARTISANALE',      yStart: 126, yEnd: 254, color: 'rgba(155,89,182,0.05)' },
-  { label: 'CHAMPS & EXTRACTION',  yStart: 262, yEnd: 460, color: 'rgba(76,138,80,0.04)' },
+  { label: 'LA CAPITALE',          yStart: 0,   yEnd: 118, color: 'rgba(86,168,230,0.05)' },
+  { label: 'ZONE ARTISANALE',      yStart: 126, yEnd: 254, color: 'rgba(86,168,230,0.04)' },
+  { label: 'CHAMPS & EXTRACTION',  yStart: 262, yEnd: 460, color: 'rgba(86,168,230,0.03)' },
 ]
 
 const svgW = 720
 const svgH = 460
 const UPGRADE_COSTS: Record<number, number> = { 1: 25, 2: 50, 3: 100, 4: 200 }
 
+// ─── FloatCard — hover info overlay ─────────────────────────────────────────
+
+interface FloatCardProps {
+  nodeId: string
+  pos: { x: number; y: number }
+  state: GameState
+}
+
+function FloatCard({ nodeId, pos, state }: FloatCardProps) {
+  const mapNode = state.map.nodes.find(n => n.id === nodeId)
+  if (!mapNode || mapNode.locked) return null
+
+  const isOwned  = !!mapNode.buildingInstanceId
+  const isWonder = nodeId === 'wonder_slot' || nodeId === 'cathedrale_slot'
+  if (isWonder) return null
+
+  const ownedBuilding = mapNode.buildingInstanceId
+    ? (state.player.buildings.find(b => b.instanceId === mapNode.buildingInstanceId)
+       ?? state.rivals.flatMap(r => r.buildings).find(b => b.instanceId === mapNode.buildingInstanceId))
+    : undefined
+  const def = ownedBuilding
+    ? (buildingDefs as any[]).find(d => d.id === ownedBuilding.defId)
+    : null
+
+  const available = !isOwned && mapNode.slotType ? getBuildingsForSlot(mapNode.slotType) : []
+
+  const cardLeft = Math.max(4, pos.x - 85)
+
+  return (
+    <div className="float-card" style={{ left: cardLeft, top: pos.y }}>
+      {isOwned && def ? (
+        <>
+          <span style={{ fontWeight: 600, color: mapNode.ownedBy === 'player' ? 'var(--player-color)' : 'var(--text)' }}>
+            {mapNode.ownedBy === 'player' ? '✓ ' : ''}{def.name}
+            {(ownedBuilding?.level ?? 1) > 1 ? ` T${ownedBuilding!.level}` : ''}
+          </span>
+          {def.produces && (
+            <span style={{ fontSize: '0.72rem', color: 'var(--success)', fontFamily: 'var(--font-num)' }}>
+              +{def.productionPerDay} {RESOURCE_ICONS[def.produces] ?? ''}/j
+            </span>
+          )}
+          {def.revenuePerDay > 0 && !def.produces && (
+            <span style={{ fontSize: '0.72rem', color: 'var(--accent)', fontFamily: 'var(--font-num)' }}>
+              +{def.revenuePerDay} or/j
+            </span>
+          )}
+        </>
+      ) : available.length > 0 ? (
+        available.map((bd: any) => {
+          const canAfford = canAffordBuilding(bd.id, state)
+          return (
+            <div key={bd.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontWeight: 600, color: canAfford ? 'var(--text)' : 'var(--text-muted)', fontSize: '0.84rem' }}>
+                {bd.name}
+              </span>
+              <span style={{ fontSize: '0.70rem', fontFamily: 'var(--font-num)', color: canAfford ? 'var(--accent)' : 'var(--danger)' }}>
+                {getBuildingCostLabel(bd.id)}
+                {!canAfford && ' — insuffisant'}
+              </span>
+            </div>
+          )
+        })
+      ) : null}
+    </div>
+  )
+}
+
+// ─── WorldMap ─────────────────────────────────────────────────────────────────
+
 export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }: Props) {
   const { map, player, rivals, wonders, rivalStrategies } = state
 
   const [pulsingNodes, setPulsingNodes] = useState<Set<string>>(new Set())
+  const [hoveredNode, setHoveredNode] = useState<{ id: string; pos: { x: number; y: number } } | null>(null)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const prevNodesRef = useRef(map.nodes)
+
+  function svgPointToDOM(svgX: number, svgY: number): { x: number; y: number } | null {
+    const svg = svgRef.current
+    const wrapper = wrapperRef.current
+    if (!svg || !wrapper) return null
+    try {
+      const pt = svg.createSVGPoint()
+      pt.x = svgX
+      pt.y = svgY
+      const screenPt = pt.matrixTransform(svg.getScreenCTM()!)
+      const wrapRect = wrapper.getBoundingClientRect()
+      return { x: screenPt.x - wrapRect.left, y: screenPt.y - wrapRect.top }
+    } catch {
+      return null
+    }
+  }
+
+  function openCard(nodeId: string, svgX: number, svgY: number, R: number) {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    const pos = svgPointToDOM(svgX, svgY + R + 10)
+    if (pos) setHoveredNode({ id: nodeId, pos })
+  }
+
+  function scheduleClose() {
+    closeTimerRef.current = setTimeout(() => setHoveredNode(null), 120)
+  }
+
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current) }, [])
   useEffect(() => {
     const prev = prevNodesRef.current
     const newlyOwned = map.nodes
@@ -139,10 +239,10 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
     return GUILD_COLORS[owner as GuildId] ?? 'var(--text-muted)'
   }
   function getOwnerFill(owner?: GuildId | string) {
-    if (owner === 'player') return 'rgba(76,138,201,0.45)'
-    if (owner === 'brice')  return 'rgba(201,76,76,0.30)'
-    if (owner === 'raph')   return 'rgba(155,89,182,0.30)'
-    return 'rgba(18,18,36,0.88)'
+    if (owner === 'player') return 'rgba(86,197,214,0.30)'
+    if (owner === 'brice')  return 'rgba(224,138,69,0.22)'
+    if (owner === 'raph')   return 'rgba(232,192,105,0.22)'
+    return 'url(#nodeFillGrad)'
   }
 
   // Wonder progress
@@ -166,20 +266,27 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
   )
 
   return (
-    <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%' }}>
-      <h2 style={{ fontFamily: 'var(--font-title)', fontSize: '0.9rem', color: 'var(--accent)', letterSpacing: '0.08em' }}>
-        CARTE
+    <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%', background: 'var(--bg-panel)', border: '1px solid var(--edge-soft)' }}>
+      <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: '0.72rem', color: 'var(--text-muted)', letterSpacing: '0.22em', textTransform: 'uppercase' }}>
+        Carte
       </h2>
 
-      <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ flex: 1, borderRadius: 8 }}>
-        <rect x={0} y={0} width={svgW} height={svgH} fill="#0d0d1a" />
+      <div ref={wrapperRef} style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+      <svg ref={svgRef} width="100%" height="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ borderRadius: 8, display: 'block' }}>
+        <defs>
+          <radialGradient id="nodeFillGrad" cx="38%" cy="32%" r="70%">
+            <stop offset="0%" stopColor="#16304c"/>
+            <stop offset="100%" stopColor="#0c1827"/>
+          </radialGradient>
+        </defs>
+        <rect x={0} y={0} width={svgW} height={svgH} fill="#070d16" />
 
         {/* Zone bands */}
         {ZONES.map(z => (
           <g key={z.label}>
             <rect x={0} y={z.yStart} width={svgW} height={z.yEnd - z.yStart} fill={z.color} />
-            <rect x={0} y={z.yEnd}   width={svgW} height={1} fill="rgba(201,168,76,0.08)" />
-            <text x={8} y={z.yStart + 14} fontSize={9} fill="rgba(201,168,76,0.35)" fontFamily="var(--font-ui)" letterSpacing="0.12em">
+            <rect x={0} y={z.yEnd}   width={svgW} height={1} fill="rgba(96,160,224,0.12)" />
+            <text x={10} y={z.yStart + 14} fontSize={9} fill="rgba(96,160,224,0.40)" fontFamily="var(--font-ui)" letterSpacing="0.18em">
               {z.label}
             </text>
           </g>
@@ -206,7 +313,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
             : null
           const defId = ownedBuilding?.defId as BuildingId | undefined
 
-          const color  = isLocked ? 'rgba(120,120,140,0.3)' : getOwnerColor(owner)
+          const color  = isLocked ? 'rgba(70,96,125,0.35)' : getOwnerColor(owner)
           const canBuy   = !isLocked && !owner && !!slotType && !isWonder
           const canShare = !isLocked && !!owner && owner !== 'player' && !!instanceId
           const sharePreview = canShare ? previewBuyShare(state, instanceId!) : null
@@ -284,24 +391,31 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                   style={{ animation: 'nodeAcquired 1.4s ease-out forwards' }} />
               )}
               {owner && (
-                <circle cx={pos.x} cy={pos.y} r={R + 7} fill="none" stroke={color} strokeWidth={1.5} opacity={0.35} />
+                <circle cx={pos.x} cy={pos.y} r={R + 7} fill="none" stroke={color} strokeWidth={1.5} opacity={0.30} />
               )}
               <circle
                 cx={pos.x} cy={pos.y} r={R}
-                fill={isLocked ? 'rgba(15,15,28,0.9)' : getOwnerFill(owner)}
-                stroke={color}
-                strokeWidth={owner ? 3 : (isLocked ? 0.8 : 1.5)}
-                style={{ filter: owner ? `drop-shadow(0 0 10px ${color}70)` : undefined }}
+                fill={isLocked ? 'rgba(10,20,35,0.90)' : getOwnerFill(owner)}
+                stroke={isLocked ? 'rgba(96,160,224,0.15)' : color}
+                strokeWidth={owner ? 2.5 : (isLocked ? 0.8 : 1.5)}
+                style={{
+                  filter: owner ? `drop-shadow(0 0 10px ${color}60)` : undefined,
+                  cursor: (!isLocked && !owner && availableBuildings.length > 0) ? 'pointer' : undefined,
+                  transition: 'all .18s',
+                }}
+                onMouseEnter={() => openCard(nodeId, pos.x, pos.y, R)}
+                onMouseLeave={scheduleClose}
+                onClick={availableBuildings.length === 1 ? () => { onBuyBuilding(availableBuildings[0].id as BuildingId); setHoveredNode(null) } : undefined}
               />
 
               {/* Share arc + control threshold notch */}
               {shareArcPct > 0 && (
                 <>
                   <path d={arcPath(pos.x, pos.y, arcR, shareArcPct)}
-                    fill="none" stroke={shareArcColor} strokeWidth={3.5} strokeLinecap="round" opacity={0.85} />
+                    fill="none" stroke={shareArcColor} strokeWidth={3.5} strokeLinecap="round" opacity={0.90} />
                   {notch && (
                     <line x1={notch.x1} y1={notch.y1} x2={notch.x2} y2={notch.y2}
-                      stroke="#c9a84c" strokeWidth={2} strokeLinecap="round" />
+                      stroke="var(--accent)" strokeWidth={2} strokeLinecap="round" />
                   )}
                 </>
               )}
@@ -323,8 +437,9 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
               )}
 
               <text
-                x={pos.x} y={pos.y + R + 13} textAnchor="middle" fontSize={10}
-                fill={isLocked ? 'rgba(120,120,140,0.4)' : 'var(--text-dim)'}
+                x={pos.x} y={pos.y + R + 14} textAnchor="middle" fontSize={10}
+                fill={isLocked ? 'rgba(70,96,125,0.45)' : 'var(--text-dim)'}
+                fontFamily="var(--font-ui)"
               >{isLocked ? '— bientôt —' : (owner && buildingDef ? buildingDef.name : pos.label)}</text>
 
               {rivalCutLabel && (
@@ -343,22 +458,23 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
 
 
               {!isLocked && !isWonder && degradPct >= 15 && (
-                <text x={pos.x} y={pos.y - R - 8} textAnchor="middle" fontSize={9} fill={degradPct >= 30 ? '#c96060' : '#c9a84c'}>
+                <text x={pos.x} y={pos.y - R - 8} textAnchor="middle" fontSize={9}
+                  fill={degradPct >= 30 ? 'var(--danger)' : 'var(--accent)'}>
                   {degradPct >= 30 ? '🍂' : '🌿'} −{degradPct}%
                 </text>
               )}
 
-              {/* Buy building buttons — one per available building for this slot */}
-              {availableBuildings.map((bd, bi) => (
-                <foreignObject key={bd.id} x={pos.x - 72} y={pos.y + R + 14 + bi * 36} width={144} height={32}>
+              {/* Buy building buttons — workshops with 2 buildings keep inline buttons */}
+              {availableBuildings.length > 1 && availableBuildings.map((bd, bi) => (
+                <foreignObject key={bd.id} x={pos.x - 72} y={pos.y + R + 14 + bi * 36} width={144} height={30}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: '2px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, opacity: canAffordBuilding(bd.id, state) ? 1 : 0.45 }}
+                    style={{ width: '100%', height: '100%', padding: '2px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, opacity: canAffordBuilding(bd.id, state) ? 1 : 0.45, borderColor: canAffordBuilding(bd.id, state) ? 'rgba(96,160,224,0.35)' : undefined }}
                     disabled={!canAffordBuilding(bd.id, state)}
                     onClick={() => onBuyBuilding(bd.id as BuildingId)}
                   >
                     <span style={{ fontSize: '0.62rem', lineHeight: 1.2 }}>{bd.name}</span>
-                    <span style={{ fontSize: '0.52rem', opacity: 0.75, lineHeight: 1.2 }}>{getBuildingCostLabel(bd.id)}</span>
+                    <span style={{ fontSize: '0.52rem', opacity: 0.70, lineHeight: 1.2, fontFamily: 'var(--font-num)' }}>{getBuildingCostLabel(bd.id)}</span>
                   </button>
                 </foreignObject>
               ))}
@@ -368,7 +484,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 <foreignObject x={pos.x - 72} y={pos.y + R + 52} width={144} height={24}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: canAffordUpgrade ? 'var(--accent)' : undefined, opacity: canAffordUpgrade ? 1 : 0.45 }}
+                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: canAffordUpgrade ? 'var(--accent)' : undefined, opacity: canAffordUpgrade ? 1 : 0.45, fontFamily: 'var(--font-num)' }}
                     disabled={!canAffordUpgrade}
                     onClick={() => onUpgradeBuilding(instanceId!)}
                   >
@@ -382,7 +498,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 <foreignObject x={pos.x - 72} y={pos.y + R + 52} width={144} height={24}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: canAffordConfort ? '#e67e22' : undefined, opacity: canAffordConfort ? 1 : 0.45 }}
+                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: canAffordConfort ? 'rgba(232,192,105,0.6)' : undefined, opacity: canAffordConfort ? 1 : 0.45, fontFamily: 'var(--font-num)' }}
                     disabled={!canAffordConfort}
                     onClick={() => onUpgradeBuilding(instanceId!)}
                   >
@@ -396,7 +512,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 <foreignObject x={pos.x - 72} y={pos.y + R + 52} width={144} height={24}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: sharePreview.ownerColor }}
+                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: sharePreview.ownerColor, fontFamily: 'var(--font-num)' }}
                     title={`Acheter 10% de ${sharePreview.ownerName} pour ${sharePreview.cost}or → +${sharePreview.playerCutPerDay}/j`}
                     onClick={() => onBuyShare(instanceId!)}
                     disabled={!sharePreview.canAfford}
@@ -410,15 +526,21 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
         })}
       </svg>
 
+      {/* FloatCard overlay */}
+      {hoveredNode && (
+        <FloatCard nodeId={hoveredNode.id} pos={hoveredNode.pos} state={state} />
+      )}
+      </div>
+
       {/* Legend */}
-      <div style={{ display: 'flex', gap: 12, fontSize: '0.7rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, fontSize: '0.68rem', color: 'var(--text-muted)', flexWrap: 'wrap', fontFamily: 'var(--font-ui)' }}>
         <span style={{ color: 'var(--player-color)' }}>■ Toi</span>
         {rivals.filter(r => !!rivalStrategies[r.id]).map(r => (
           <span key={r.id} style={{ color: r.color }}>■ {r.name}</span>
         ))}
-        <span>□ Disponible</span>
+        <span style={{ color: 'var(--text-muted)' }}>□ Disponible</span>
         {leadingRival && rivalStrategies[leadingRival.id] && (
-          <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.65rem' }}>
+          <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.62rem' }}>
             ⚔ {leadingRival.name} → {
               rivalStrategies[leadingRival.id]?.preferredResource === 'wood'  ? 'Bois' :
               rivalStrategies[leadingRival.id]?.preferredResource === 'huile' ? 'Huile' :

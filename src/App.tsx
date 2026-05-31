@@ -88,15 +88,15 @@ export default function App() {
       display: 'flex',
       height: '100vh',
       overflow: 'hidden',
-      background: 'var(--bg)',
+      background: 'radial-gradient(125% 120% at 50% -8%, #12243c 0%, #0c1828 46%, #060c15 100%), var(--bg)',
     }}>
       {/* ── LEFT SIDEBAR — Spot Market (permanent, always visible) ── */}
       <aside style={{
-        width: 390,
+        width: 'var(--panel-width)',
         flexShrink: 0,
         overflowY: 'auto',
-        borderRight: '1px solid var(--border)',
-        background: 'var(--bg-panel)',
+        borderRight: '1px solid var(--edge)',
+        background: 'linear-gradient(180deg, #112135 0%, #0c1827 100%)',
         display: 'flex',
         flexDirection: 'column',
       }}>
@@ -135,10 +135,10 @@ export default function App() {
       {import.meta.env.DEV && (
         <div style={{
           position: 'fixed', bottom: 12, right: 12, zIndex: 9999,
-          background: 'rgba(10,10,20,0.92)', border: '1px solid #c9a84c44',
+          background: 'rgba(7,13,22,0.95)', border: '1px solid rgba(96,160,224,0.20)',
           borderRadius: 6, padding: '6px 10px',
           display: 'flex', gap: 8, alignItems: 'center',
-          fontFamily: 'Fira Code, monospace', fontSize: '0.68rem', color: '#c9a84c88',
+          fontFamily: 'Fira Code, monospace', fontSize: '0.68rem', color: 'rgba(96,160,224,0.5)',
         }}>
           <span>DEV</span>
           <button
@@ -147,8 +147,8 @@ export default function App() {
               player: { ...s.player, inventory: { ...s.player.inventory, wood: 10 } },
             }))}
             style={{
-              background: 'none', border: '1px solid #c9a84c66', borderRadius: 4,
-              color: '#c9a84c', padding: '2px 8px', cursor: 'pointer',
+              background: 'none', border: '1px solid rgba(96,160,224,0.3)', borderRadius: 4,
+              color: 'var(--blue)', padding: '2px 8px', cursor: 'pointer',
               fontFamily: 'inherit', fontSize: 'inherit',
             }}
           >

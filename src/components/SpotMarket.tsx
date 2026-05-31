@@ -111,23 +111,22 @@ function MiniResourceChart({ resourceId, resourceMarket, selected, playerQty, on
     }
   }, [resourceMarket.currentPrice])
 
-  // Price text flashes on tick — fond reste la couleur stable de la ressource
   const priceColor = flashDir === 'up' ? 'var(--success)' : flashDir === 'down' ? 'var(--danger)' : meta.chartColor
 
   const chartData = liveHistory.map(p => ({ x: p.t, price: parseFloat(p.price.toFixed(3)) }))
   const sparkId = `spark_${resourceId}`
 
-  // Fond statique teinté par la couleur naturelle de la ressource
-  const cardBg = selected
-    ? `${meta.cardHex}22`
-    : `${meta.cardHex}0e`
+  const cardBg = selected ? 'rgba(20,38,60,0.90)' : 'var(--bg-card)'
+  const cardBorder = selected
+    ? `1px solid rgba(96,160,224,0.40)`
+    : `1px solid var(--edge-soft)`
 
   return (
     <button
       onClick={onClick}
       style={{
         background: cardBg,
-        border: `1px solid ${selected ? meta.cardHex + 'aa' : meta.cardHex + '30'}`,
+        border: cardBorder,
         borderRadius: 10,
         padding: '11px 11px 9px',
         cursor: 'pointer',
@@ -135,7 +134,7 @@ function MiniResourceChart({ resourceId, resourceMarket, selected, playerQty, on
         flexDirection: 'column',
         gap: 6,
         transition: 'all 0.15s',
-        boxShadow: selected ? `0 0 18px ${meta.cardHex}28` : 'none',
+        boxShadow: selected ? `0 0 20px rgba(96,160,224,0.15), 0 0 0 1px rgba(96,160,224,0.20)` : 'none',
         position: 'relative',
         textAlign: 'left',
         minWidth: 0,
@@ -144,7 +143,8 @@ function MiniResourceChart({ resourceId, resourceMarket, selected, playerQty, on
       {selected && (
         <div style={{
           position: 'absolute', bottom: 0, left: '18%', right: '18%', height: 2,
-          background: meta.cardHex, borderRadius: '2px 2px 0 0', opacity: 0.8,
+          background: `linear-gradient(90deg, var(--blue), var(--accent))`,
+          borderRadius: '2px 2px 0 0', opacity: 0.9,
         }} />
       )}
 
@@ -153,19 +153,19 @@ function MiniResourceChart({ resourceId, resourceMarket, selected, playerQty, on
         <span style={{ fontSize: '1.0rem', lineHeight: 1, flexShrink: 0 }}>{meta.icon}</span>
         <span style={{
           fontFamily: 'var(--font-ui)', fontSize: '0.92rem', fontWeight: 600,
-          color: meta.chartColor, flex: 1, letterSpacing: '0.02em',
+          color: selected ? 'var(--text)' : 'var(--text-dim)', flex: 1, letterSpacing: '0.02em',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {meta.label}
         </span>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, flexShrink: 0 }}>
           <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: '1.05rem', fontWeight: 700,
+            fontFamily: 'var(--font-num)', fontSize: '1.05rem', fontWeight: 700,
             color: priceColor, transition: 'color 0.35s ease', lineHeight: 1,
           }}>
             {resourceMarket.currentPrice.toFixed(2)}
           </span>
-          <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>or</span>
+          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>or</span>
         </div>
       </div>
 
@@ -197,9 +197,9 @@ function MiniResourceChart({ resourceId, resourceMarket, selected, playerQty, on
 
       {/* Stock */}
       <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: '0.75rem', lineHeight: 1,
+        fontFamily: 'var(--font-num)', fontSize: '0.72rem', lineHeight: 1,
         color: playerQty > 0 ? meta.chartColor : 'var(--text-muted)',
-        opacity: playerQty > 0 ? 0.85 : 0.4,
+        opacity: playerQty > 0 ? 0.85 : 0.35,
       }}>
         {playerQty > 0 ? `${playerQty} en stock` : '—'}
       </div>
@@ -286,12 +286,13 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
 
       {/* ── Header ── */}
       <div style={{
-        fontSize: '0.97rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)',
-        letterSpacing: '0.1em', paddingBottom: 10, borderBottom: '1px solid var(--border)',
+        fontSize: '0.82rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)',
+        letterSpacing: '0.22em', paddingBottom: 10, borderBottom: '1px solid var(--edge)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0,
+        textTransform: 'uppercase',
       }}>
-        <span style={{ color: 'var(--accent-dim)', textTransform: 'uppercase' }}>⚖ Spot Market</span>
-        <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: '0.94rem' }}>J{state.day}</span>
+        <span style={{ color: 'var(--text-dim)' }}>⚖ Spot Market</span>
+        <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-num)', fontSize: '0.90rem', fontWeight: 700 }}>J{state.day}</span>
       </div>
 
       {/* ── Resource grid — mini charts, 2 cols ── */}
@@ -315,7 +316,7 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
 
       {/* ── Rumeurs (gauche) + Actions (droite) ── */}
       <div style={{
-        borderTop: '1px solid var(--border)',
+        borderTop: '1px solid var(--edge)',
         paddingTop: 13,
         flexShrink: 0,
         display: 'flex',
@@ -326,16 +327,16 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
         {/* ── Rumors column ── */}
         <div style={{ width: 170, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{
-            fontSize: '0.78rem', color: 'var(--accent-dim)',
-            fontFamily: 'var(--font-ui)', letterSpacing: '0.1em',
-            textTransform: 'uppercase', marginBottom: 2,
+            fontSize: '0.70rem', color: 'var(--text-muted)',
+            fontFamily: 'var(--font-ui)', letterSpacing: '0.18em',
+            textTransform: 'uppercase', marginBottom: 4,
           }}>
             Rumeurs
           </div>
 
           {rumors.length === 0 ? (
             <div style={{
-              fontSize: '0.9rem', color: 'var(--text-muted)',
+              fontSize: '0.85rem', color: 'var(--text-muted)',
               fontFamily: 'var(--font-ui)', opacity: 0.45, lineHeight: 1.5, paddingTop: 2,
             }}>
               Silence sur les marchés…
@@ -343,13 +344,13 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
           ) : (
             rumors.map((r, i) => (
               <div key={i} style={{
-                fontSize: '0.9rem',
-                color: 'rgba(238,226,208,0.96)',
-                background: 'rgba(201,168,76,0.06)',
-                border: '1px solid rgba(201,168,76,0.15)',
-                borderLeft: '2px solid var(--accent-dim)',
-                borderRadius: '0 6px 6px 0',
-                padding: '7px 10px 7px 10px',
+                fontSize: '0.84rem',
+                color: 'var(--text-dim)',
+                background: 'rgba(86,168,230,0.05)',
+                border: '1px solid var(--edge-soft)',
+                borderLeft: '2px solid var(--blue)',
+                borderRadius: '0 7px 7px 0',
+                padding: '7px 10px',
                 fontFamily: 'var(--font-ui)',
                 lineHeight: 1.5,
                 letterSpacing: '0.01em',
@@ -367,13 +368,13 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: '1.12rem', lineHeight: 1 }}>{meta.icon}</span>
             <span style={{
-              fontFamily: 'var(--font-ui)', fontSize: '0.94rem',
-              color: meta.chartColor, flex: 1, letterSpacing: '0.03em',
+              fontFamily: 'var(--font-ui)', fontSize: '0.92rem',
+              color: 'var(--text)', flex: 1, letterSpacing: '0.02em',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               {meta.label}
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', color: 'var(--text-dim)' }}>
+            <span style={{ fontFamily: 'var(--font-num)', fontSize: '0.92rem', fontWeight: 600, color: 'var(--accent)' }}>
               {mkt.currentPrice.toFixed(2)}
             </span>
           </div>
@@ -382,20 +383,20 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             <button
               className="btn-secondary"
-              style={{ width: 28, padding: '4px 0', fontSize: '1.1rem', lineHeight: 1 }}
+              style={{ width: 32, height: 32, padding: '0', fontSize: '1.1rem', lineHeight: 1 }}
               onClick={() => setQty(q => Math.max(1, q - 1))}
             >
               −
             </button>
             <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700,
-              color: 'var(--text)', minWidth: 28, textAlign: 'center',
+              fontFamily: 'var(--font-num)', fontSize: '1.2rem', fontWeight: 700,
+              color: 'var(--text)', minWidth: 30, textAlign: 'center',
             }}>
               {safeQty}
             </span>
             <button
               className="btn-secondary"
-              style={{ width: 28, padding: '4px 0', fontSize: '1.1rem', lineHeight: 1 }}
+              style={{ width: 32, height: 32, padding: '0', fontSize: '1.1rem', lineHeight: 1 }}
               onClick={() => setQty(q => q + 1)}
             >
               +
@@ -422,20 +423,23 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
           <button
             className="btn-primary"
             style={{
-              width: '100%', padding: '10px 8px',
-              background: canSell ? 'linear-gradient(135deg,#c94c4c,#8f3030)' : 'rgba(201,76,76,0.12)',
-              borderColor: canSell ? '#c94c4c' : 'rgba(201,76,76,0.28)',
-              color: canSell ? '#fff' : 'rgba(255,255,255,0.28)',
+              width: '100%', padding: '11px 8px',
+              background: canSell
+                ? `linear-gradient(180deg, var(--danger), #8f2020)`
+                : 'rgba(214,70,63,0.10)',
+              borderColor: canSell ? 'var(--danger)' : 'rgba(214,70,63,0.25)',
+              color: canSell ? 'var(--sell-ink, #ffd7d2)' : 'rgba(255,255,255,0.25)',
+              boxShadow: canSell ? `0 0 16px var(--sell-glow, rgba(214,70,63,0.35))` : 'none',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
             }}
             disabled={!canSell}
             onClick={() => onSell(effectiveSelected, safeSellQty)}
           >
-            <span style={{ fontSize: '0.97rem', letterSpacing: '0.02em', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.95rem', letterSpacing: '0.03em', fontWeight: 600, fontFamily: 'var(--font-ui)' }}>
               Vendre {safeSellQty} {meta.icon}
             </span>
             {canSell && (
-              <span style={{ fontSize: '0.82rem', opacity: 0.85, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '0.82rem', opacity: 0.90, fontFamily: 'var(--font-num)', fontWeight: 600 }}>
                 +{formatGold(sellPreview.goldEarned)} or
               </span>
             )}
@@ -445,24 +449,27 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
           <button
             className="btn-primary"
             style={{
-              width: '100%', padding: '10px 8px',
-              background: canBuy ? 'linear-gradient(135deg,#4caf6a,#2e7a47)' : 'rgba(76,175,106,0.1)',
-              borderColor: canBuy ? '#4caf6a' : 'rgba(76,175,106,0.28)',
-              color: canBuy ? '#fff' : 'rgba(255,255,255,0.28)',
+              width: '100%', padding: '11px 8px',
+              background: canBuy
+                ? `linear-gradient(180deg, var(--success), #2a6e42)`
+                : 'rgba(70,176,111,0.08)',
+              borderColor: canBuy ? 'var(--success)' : 'rgba(70,176,111,0.25)',
+              color: canBuy ? '#e8fef2' : 'rgba(255,255,255,0.25)',
+              boxShadow: canBuy ? `0 0 16px var(--buy-glow, rgba(70,176,111,0.35))` : 'none',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
             }}
             disabled={!canBuy}
             onClick={() => onBuy(effectiveSelected, safeBuyQty)}
           >
-            <span style={{ fontSize: '0.97rem', letterSpacing: '0.02em', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.95rem', letterSpacing: '0.03em', fontWeight: 600, fontFamily: 'var(--font-ui)' }}>
               Acheter {safeQty} {meta.icon}
             </span>
             {canBuy ? (
-              <span style={{ fontSize: '0.82rem', opacity: 0.85, fontFamily: 'var(--font-mono)' }}>
-                {formatGold(buyPreview.cost)} or
+              <span style={{ fontSize: '0.82rem', opacity: 0.90, fontFamily: 'var(--font-num)', fontWeight: 600 }}>
+                −{formatGold(buyPreview.cost)} or
               </span>
             ) : (
-              <span style={{ fontSize: '0.75rem', opacity: 0.45, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '0.72rem', opacity: 0.45, fontFamily: 'var(--font-ui)' }}>
                 {player.gold < mkt.currentPrice ? 'or insuffisant' : 'marché vide'}
               </span>
             )}
@@ -473,8 +480,8 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
             <button
               className="btn-secondary"
               style={{
-                width: '100%', fontSize: '0.82rem', padding: '5px 0',
-                borderColor: 'rgba(180,60,60,0.4)', color: '#c96060',
+                width: '100%', fontSize: '0.80rem', padding: '5px 0',
+                borderColor: 'rgba(214,70,63,0.35)', color: 'rgba(214,70,63,0.85)',
               }}
               onClick={() => onSell(effectiveSelected, playerQty)}
             >
@@ -488,23 +495,24 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
 
       {/* ── Phase 0 — Objectif 10 bois ── */}
       {!phase0Done && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 13, flexShrink: 0 }}>
+        <div style={{ borderTop: '1px solid var(--edge)', paddingTop: 13, flexShrink: 0 }}>
           <div style={{
             display: 'flex', justifyContent: 'space-between',
-            fontSize: '0.97rem', fontFamily: 'var(--font-mono)', marginBottom: 7, color: 'var(--text-muted)',
+            fontSize: '0.88rem', fontFamily: 'var(--font-ui)', marginBottom: 7, color: 'var(--text-muted)',
+            letterSpacing: '0.04em',
           }}>
             <span>🪵 Objectif Bûcheron</span>
-            <span style={{ color: 'var(--text-dim)' }}>{playerWood} / {PHASE0_WOOD_GOAL}</span>
+            <span style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-num)', fontWeight: 600 }}>{playerWood} / {PHASE0_WOOD_GOAL}</span>
           </div>
-          <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 9 }}>
+          <div style={{ height: 5, background: 'var(--edge-soft)', borderRadius: 3, overflow: 'hidden', marginBottom: 9 }}>
             <div style={{
               height: '100%',
               width: `${Math.min(playerWood / PHASE0_WOOD_GOAL * 100, 100)}%`,
-              background: 'linear-gradient(90deg,#5a9e6a,#3a6e4a)',
+              background: 'linear-gradient(90deg, #5a9e6a, #3a6e4a)',
               borderRadius: 3, transition: 'width 0.4s ease',
             }} />
           </div>
-          <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'center', lineHeight: 1.4 }}>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'center', lineHeight: 1.4, fontStyle: 'italic' }}>
             Encore {PHASE0_WOOD_GOAL - playerWood} bois pour débloquer le Bûcheron
           </div>
         </div>
@@ -512,11 +520,11 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
 
       {/* ── Phase 1 — acheter Bûcheron ── */}
       {phase0Done && !hasBucheron && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 13, flexShrink: 0 }}>
-          <div style={{ fontSize: '0.9rem', color: 'var(--accent)', fontFamily: 'var(--font-ui)', letterSpacing: '0.06em', marginBottom: 7 }}>
+        <div style={{ borderTop: '1px solid var(--edge)', paddingTop: 13, flexShrink: 0 }}>
+          <div style={{ fontSize: '0.86rem', color: 'var(--accent)', fontFamily: 'var(--font-ui)', letterSpacing: '0.08em', marginBottom: 7 }}>
             ✦ Bûcheron débloqué
           </div>
-          <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 9, lineHeight: 1.4 }}>
+          <div style={{ fontSize: '0.86rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', marginBottom: 9, lineHeight: 1.4 }}>
             Automatise ta production — +8 🪵/jour
           </div>
           <button
@@ -537,58 +545,58 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
 
       {/* ── Phase 1 active — filières ── */}
       {hasBucheron && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 13, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.97rem', fontFamily: 'var(--font-mono)', color: 'var(--success)' }}>
+        <div style={{ borderTop: '1px solid var(--edge)', paddingTop: 13, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.90rem', fontFamily: 'var(--font-ui)', color: 'var(--success)' }}>
             <span>🪵 Bûcheron T{bucheronLevel}</span>
-            <span style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>+{bucheronProduction} 🪵/jour</span>
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.86rem', fontFamily: 'var(--font-num)', fontWeight: 600 }}>+{bucheronProduction} 🪵/j</span>
           </div>
 
           {!hasMenuiserie && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.94rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', fontFamily: 'var(--font-ui)', color: 'var(--text-muted)' }}>
                 <span>🏭 Menuiserie</span>
-                <span>{Math.min(playerWood, MENUISERIE_WOOD_COST)} / {MENUISERIE_WOOD_COST} 🪵</span>
+                <span style={{ fontFamily: 'var(--font-num)' }}>{Math.min(playerWood, MENUISERIE_WOOD_COST)} / {MENUISERIE_WOOD_COST} 🪵</span>
               </div>
-              <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${menuiserieProgress}%`, background: 'linear-gradient(90deg,#c9a84c,#8a6e28)', borderRadius: 2, transition: 'width 0.4s ease' }} />
+              <div style={{ height: 4, background: 'var(--edge-soft)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${menuiserieProgress}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-dim))', borderRadius: 2, transition: 'width 0.4s ease' }} />
               </div>
               {playerWood >= MENUISERIE_WOOD_COST && (
-                <button className="btn-primary" style={{ width: '100%', fontSize: '1rem', padding: '9px 0' }} onClick={() => onBuyBuilding('menuiserie')}>
+                <button className="btn-primary" style={{ width: '100%', fontSize: '0.95rem', padding: '9px 0' }} onClick={() => onBuyBuilding('menuiserie')}>
                   🏭 Menuiserie — {MENUISERIE_WOOD_COST} 🪵
                 </button>
               )}
             </>
           )}
           {hasMenuiserie && (
-            <div style={{ fontSize: '0.9rem', color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: '0.86rem', color: 'var(--success)', fontFamily: 'var(--font-ui)' }}>
               ✓ Menuiserie — 4🪵/j → 1🪑/j
             </div>
           )}
 
           {!hasOlivery && (
-            <div style={{ fontSize: '0.9rem', color: 'var(--accent)', fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
+            <div style={{ fontSize: '0.86rem', color: 'var(--accent)', fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
               ✦ Oliveraie disponible (Carte → Zone Champs)
             </div>
           )}
 
           {hasOlivery && !hasPress && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.94rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', fontFamily: 'var(--font-ui)', color: 'var(--text-muted)' }}>
                 <span>🫙 Presse</span>
-                <span>{Math.min(playerOlive, PRESS_OLIVE_COST)} / {PRESS_OLIVE_COST} 🫒</span>
+                <span style={{ fontFamily: 'var(--font-num)' }}>{Math.min(playerOlive, PRESS_OLIVE_COST)} / {PRESS_OLIVE_COST} 🫒</span>
               </div>
-              <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pressProgress}%`, background: 'linear-gradient(90deg,#8bc34a,#5a8a28)', borderRadius: 2, transition: 'width 0.4s ease' }} />
+              <div style={{ height: 4, background: 'var(--edge-soft)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pressProgress}%`, background: 'linear-gradient(90deg, #8bc34a, #5a8a28)', borderRadius: 2, transition: 'width 0.4s ease' }} />
               </div>
               {playerOlive >= PRESS_OLIVE_COST && (
-                <button className="btn-primary" style={{ width: '100%', fontSize: '1rem', padding: '9px 0' }} onClick={() => onBuyBuilding('press')}>
+                <button className="btn-primary" style={{ width: '100%', fontSize: '0.95rem', padding: '9px 0' }} onClick={() => onBuyBuilding('press')}>
                   🫙 Presse — {PRESS_OLIVE_COST} 🫒
                 </button>
               )}
             </>
           )}
           {hasPress && (
-            <div style={{ fontSize: '0.9rem', color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: '0.86rem', color: 'var(--success)', fontFamily: 'var(--font-ui)' }}>
               ✓ Presse — 3🫒/j → 1🫙/j
             </div>
           )}

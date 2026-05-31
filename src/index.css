@@ -1,24 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Marcellus&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Fira+Code:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Marcellus&family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
 
 :root {
-  --bg: #1a1a2e;
-  --bg-panel: #12122a;
-  --bg-card: #1e1e3a;
-  --accent: #c9a84c;
-  --accent-dim: #8a6f2e;
-  --accent-glow: rgba(201, 168, 76, 0.15);
-  --text: #e8dcc8;
-  --text-dim: #9a8f80;
-  --text-muted: #5a5060;
-  --success: #4caf6a;
-  --danger: #c94c4c;
-  --tex-color: #c94c4c;
-  --player-color: #4c8ac9;
-  --border: rgba(201, 168, 76, 0.2);
-  --radius: 8px;
+  /* ─── AZUR theme ─────────────────────────────────────────── */
+  --bg:           #070d16;
+  --bg-panel:     #0e1b2c;
+  --bg-card:      rgba(20,38,60,0.74);
+  --accent:       #e8c069;
+  --accent-dim:   #b08f3f;
+  --accent-glow:  rgba(232,192,105,0.30);
+  --blue:         #56a8e6;
+  --edge:         rgba(96,160,224,0.26);
+  --edge-soft:    rgba(96,160,224,0.12);
+  --text:         #eaf1fb;
+  --text-dim:     #a6bdd6;
+  --text-muted:   #6c8299;
+  --success:      #46b06f;
+  --danger:       #d6463f;
+  --player-color: #56c5d6;
+  --brice-color:  #e08a45;
+  --raph-color:   #e8c069;
+  --border:       rgba(96,160,224,0.20);
+
+  /* ─── Layout tokens ──────────────────────────────────────── */
+  --panel-width:  372px;
+  --hud-height:   70px;
+  --radius:       8px;
+
+  /* ─── Typography ─────────────────────────────────────────── */
   --font-title: 'Cinzel Decorative', Georgia, serif;
   --font-ui:    'Marcellus', Georgia, serif;
-  --font-body:  'EB Garamond', Georgia, serif;
+  --font-body:  'Marcellus', Georgia, serif;
+  --font-num:   'Outfit', sans-serif;
   --font-mono:  'Fira Code', 'Courier New', monospace;
 }
 
@@ -54,8 +66,8 @@ button:disabled {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), #a07830);
-  color: #1a1000;
+  background: linear-gradient(180deg, var(--accent), #a07830);
+  color: #0e1b2c;
   font-family: var(--font-ui);
   font-weight: 600;
   font-size: 0.9rem;
@@ -67,38 +79,59 @@ button:disabled {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #e0b860, var(--accent));
+  filter: brightness(1.1);
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
 .btn-secondary {
-  background: var(--bg-card);
-  color: var(--accent);
+  background: rgba(96,160,224,0.06);
+  color: var(--text-dim);
   font-family: var(--font-ui);
   font-size: 0.8rem;
   letter-spacing: 0.04em;
   padding: 6px 14px;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: 1px solid var(--edge);
   transition: all 0.15s;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent-glow);
+  border-color: var(--blue);
+  color: var(--text);
+  background: rgba(86,168,230,0.10);
 }
 
 .panel {
   background: var(--bg-panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--edge-soft);
   border-radius: var(--radius);
   padding: 12px;
 }
 
 .gold-value {
   color: var(--accent);
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
   font-weight: 600;
+}
+
+.float-card {
+  position: absolute;
+  background: var(--bg-card);
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 10px;
+  padding: 10px 13px;
+  z-index: 10;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+  animation: fadeIn 0.12s ease;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
 }
 
 .scrollable {

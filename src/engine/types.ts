@@ -39,8 +39,8 @@ export type GuildId = 'player' | 'brice' | 'raph' | 'rita'
 
 export const GUILD_COLORS: Record<GuildId, string> = {
   player: 'var(--player-color)',
-  brice:  '#c94c4c',
-  raph:   '#9b59b6',
+  brice:  '#e08a45',
+  raph:   '#e8c069',
   rita:   '#e67e22',
 }
 
