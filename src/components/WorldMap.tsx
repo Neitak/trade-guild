@@ -261,6 +261,22 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
           const arcR = R + 5
           const notch = shareArcPct > 0 ? notchCoords(pos.x, pos.y, arcR, EFFECTIVE_CONTROL_THRESHOLD) : null
 
+          // Rival cut — shown on player-owned buildings where rival still has shares
+          let rivalCutLabel: string | null = null
+          let rivalCutColor = ''
+          if (isPlayerOwned && instanceId && buildingDef) {
+            const rivalWithShares = rivals.find(r => r.buildings.some(b => b.instanceId === instanceId && b.shares > 0))
+            if (rivalWithShares) {
+              const rShares = rivalWithShares.buildings.find(b => b.instanceId === instanceId)!.shares
+              if (isAuberge && dailyRevenue > 0) {
+                rivalCutLabel = `${rivalWithShares.name}: −${Math.round(dailyRevenue * rShares / 100)}or/j`
+              } else if (effectiveProd > 0 && prodIcon) {
+                rivalCutLabel = `${rivalWithShares.name}: −${Math.round(effectiveProd * rShares / 100)}${prodIcon}/j`
+              }
+              rivalCutColor = rivalWithShares.color
+            }
+          }
+
           return (
             <g key={nodeId}>
               {pulsingNodes.has(nodeId) && (
@@ -311,7 +327,14 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 fill={isLocked ? 'rgba(120,120,140,0.4)' : 'var(--text-dim)'}
               >{isLocked ? '— bientôt —' : (owner && buildingDef ? buildingDef.name : pos.label)}</text>
 
-              {isWonder && (
+              {rivalCutLabel && (
+                <text x={pos.x} y={pos.y + R + 25} textAnchor="middle" fontSize={8}
+                  fill={rivalCutColor} fontFamily="var(--font-mono)" opacity={0.9}>
+                  {rivalCutLabel}
+                </text>
+              )}
+
+              {isWonder && (pPct > 0 || rPct > 0) && (
                 <>
                   <text x={pos.x} y={pos.y + R + 25} textAnchor="middle" fontSize={10} fill="var(--player-color)" fontFamily="var(--font-mono)">Toi {pPct}%</text>
                   <text x={pos.x} y={pos.y + R + 37} textAnchor="middle" fontSize={10} fill="var(--text-muted)" fontFamily="var(--font-mono)">Rival {rPct}%</text>
@@ -327,24 +350,25 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
 
               {/* Buy building buttons — one per available building for this slot */}
               {availableBuildings.map((bd, bi) => (
-                <foreignObject key={bd.id} x={pos.x - 60} y={pos.y + R + 14 + bi * 26} width={120} height={22}>
+                <foreignObject key={bd.id} x={pos.x - 72} y={pos.y + R + 14 + bi * 36} width={144} height={32}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', padding: '2px 0', fontSize: '0.60rem', opacity: canAffordBuilding(bd.id, state) ? 1 : 0.45 }}
+                    style={{ width: '100%', height: '100%', padding: '2px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, opacity: canAffordBuilding(bd.id, state) ? 1 : 0.45 }}
                     disabled={!canAffordBuilding(bd.id, state)}
                     onClick={() => onBuyBuilding(bd.id as BuildingId)}
                   >
-                    {bd.name} {getBuildingCostLabel(bd.id)}
+                    <span style={{ fontSize: '0.62rem', lineHeight: 1.2 }}>{bd.name}</span>
+                    <span style={{ fontSize: '0.52rem', opacity: 0.75, lineHeight: 1.2 }}>{getBuildingCostLabel(bd.id)}</span>
                   </button>
                 </foreignObject>
               ))}
 
               {/* Upgrade button — gold (sawmill) */}
               {isUpgradable && !isConfortUpgrade && level < maxLevel && upgradeCost != null && (
-                <foreignObject x={pos.x - 60} y={pos.y + R + 36} width={120} height={22}>
+                <foreignObject x={pos.x - 72} y={pos.y + R + 52} width={144} height={24}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', padding: '2px 0', fontSize: '0.62rem', borderColor: canAffordUpgrade ? 'var(--accent)' : undefined, opacity: canAffordUpgrade ? 1 : 0.45 }}
+                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: canAffordUpgrade ? 'var(--accent)' : undefined, opacity: canAffordUpgrade ? 1 : 0.45 }}
                     disabled={!canAffordUpgrade}
                     onClick={() => onUpgradeBuilding(instanceId!)}
                   >
@@ -355,10 +379,10 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
 
               {/* Upgrade button — CONFORT/meubles (auberge) */}
               {isConfortUpgrade && level < maxLevel && confortCost != null && (
-                <foreignObject x={pos.x - 60} y={pos.y + R + 36} width={120} height={22}>
+                <foreignObject x={pos.x - 72} y={pos.y + R + 52} width={144} height={24}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', padding: '2px 0', fontSize: '0.62rem', borderColor: canAffordConfort ? '#e67e22' : undefined, opacity: canAffordConfort ? 1 : 0.45 }}
+                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: canAffordConfort ? '#e67e22' : undefined, opacity: canAffordConfort ? 1 : 0.45 }}
                     disabled={!canAffordConfort}
                     onClick={() => onUpgradeBuilding(instanceId!)}
                   >
@@ -369,15 +393,15 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
 
               {/* Buy share button */}
               {sharePreview && (
-                <foreignObject x={pos.x - 60} y={pos.y + R + 36} width={120} height={22}>
+                <foreignObject x={pos.x - 72} y={pos.y + R + 52} width={144} height={24}>
                   <button
                     className="btn-secondary"
-                    style={{ width: '100%', padding: '2px 0', fontSize: '0.62rem', borderColor: sharePreview.ownerColor }}
-                    title={`Acheter 10% de ${sharePreview.ownerName} pour ${sharePreview.cost} or → +${sharePreview.playerCutPerDay}/j`}
+                    style={{ width: '100%', height: '100%', padding: '2px 4px', fontSize: '0.60rem', borderColor: sharePreview.ownerColor }}
+                    title={`Acheter 10% de ${sharePreview.ownerName} pour ${sharePreview.cost}or → +${sharePreview.playerCutPerDay}/j`}
                     onClick={() => onBuyShare(instanceId!)}
                     disabled={!sharePreview.canAfford}
                   >
-                    Part 10% ({sharePreview.cost}or)
+                    Part 10% — {sharePreview.cost}or (+{sharePreview.playerCutPerDay}/j)
                   </button>
                 </foreignObject>
               )}
