@@ -11,6 +11,11 @@ const RESOURCE_ICONS: Record<string, string> = {
   wood: '🪵', olive: '🫒', meuble: '🪑', huile: '🫙', pierre: '🗿',
 }
 
+// Resource-native colors for production floaters (match SpotMarket chart colors)
+const RESOURCE_COLORS: Record<string, string> = {
+  wood: '#5a9e6a', olive: '#8bc34a', meuble: '#b07ec8', huile: '#e8c069', pierre: '#9aa7b5',
+}
+
 function getBuildingCostLabel(defId: string): string {
   const def = (buildingDefs as any[]).find(b => b.id === defId)
   if (!def) return ''
@@ -234,6 +239,46 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
   const vSpread = viewH / svgH
   // foreignObject content scales with the SVG — counter-scale to keep true px size.
   const inv     = 1 / s
+
+  // ─── Production floaters — "+N🫒" rising from producing buildings ────────────
+  const [floaters, setFloaters] = useState<{ id: number; nodeId: string; text: string; color: string }[]>([])
+  const floaterIdRef  = useRef(0)
+  const processedLogRef = useRef(state.log.length) // skip events that predate mount
+
+  function findNodeForProduction(actor: string, defId: string): string | null {
+    const guild = actor === 'player' ? player : rivals.find(r => r.id === actor)
+    const inst = guild?.buildings.find(b => b.defId === defId)
+    if (!inst) return null
+    return map.nodes.find(n => n.buildingInstanceId === inst.instanceId)?.id ?? null
+  }
+
+  useEffect(() => {
+    const log = state.log
+    if (log.length < processedLogRef.current) processedLogRef.current = 0 // new game reset
+    const fresh = log.slice(processedLogRef.current)
+    processedLogRef.current = log.length
+
+    const spawned: typeof floaters = []
+    for (const ev of fresh) {
+      if (ev.type !== 'PRODUCTION') continue
+      const qty = ev.payload.qty as number
+      if (!qty || qty <= 0) continue
+      const nodeId = findNodeForProduction(ev.actor, ev.payload.buildingId as string)
+      if (!nodeId) continue
+      const resource = ev.payload.resource as string
+      spawned.push({
+        id: ++floaterIdRef.current,
+        nodeId,
+        text: `+${qty} ${RESOURCE_ICONS[resource] ?? ''}`,
+        color: RESOURCE_COLORS[resource] ?? 'var(--success)',
+      })
+    }
+    if (spawned.length > 0) {
+      setFloaters(f => [...f, ...spawned])
+      const ids = new Set(spawned.map(x => x.id))
+      setTimeout(() => setFloaters(f => f.filter(x => !ids.has(x.id))), 1500)
+    }
+  }, [state.log])
 
   useEffect(() => {
     const prev = prevNodesRef.current
@@ -553,6 +598,30 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 </foreignObject>
               )}
             </g>
+          )
+        })}
+
+        {/* Production floaters — rise from the producing building */}
+        {floaters.map(f => {
+          const base = NODE_POSITIONS[f.nodeId]
+          if (!base) return null
+          const R = (f.nodeId === 'wonder_slot' || f.nodeId === 'cathedrale_slot') ? 28 : 22
+          return (
+            <text
+              key={f.id}
+              x={base.x} y={base.y * vSpread - R - 4}
+              textAnchor="middle"
+              fontSize={15 * inv} fontWeight={700}
+              fill={f.color} fontFamily="var(--font-num)"
+              style={{
+                animation: 'floatUp 1.5s ease-out forwards',
+                transformBox: 'fill-box', transformOrigin: 'center',
+                pointerEvents: 'none',
+                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))',
+              }}
+            >
+              {f.text}
+            </text>
           )
         })}
       </svg>

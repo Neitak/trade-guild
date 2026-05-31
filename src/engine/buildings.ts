@@ -353,6 +353,7 @@ function applyAtelierProduction(
   const haveInput = guild.inventory[inputId] ?? 0
 
   let s = state
+  let didProduce = false
 
   if (haveInput >= inputQty) {
     // Consume from inventory — free run
@@ -367,6 +368,7 @@ function applyAtelierProduction(
     s = isPlayer
       ? { ...s, player: updatedGuild as typeof s.player }
       : updateRival(s, updatedGuild)
+    didProduce = true
   } else {
     // Try to buy input from market
     const marketEntry = s.market.resources[inputId]
@@ -401,8 +403,20 @@ function applyAtelierProduction(
           },
         },
       }
+      didProduce = true
     }
     // else: Atelier stops cleanly — no output, no debt
+  }
+
+  // Emit PRODUCTION event so the UI can show production feedback (same shape as Tier 1)
+  if (didProduce) {
+    const event: GameEvent = {
+      day: s.day,
+      actor: guildId,
+      type: 'PRODUCTION',
+      payload: { buildingId: building.defId, resource: outputId, qty: outputQty },
+    }
+    s = { ...s, log: [...s.log, event] }
   }
 
   return s

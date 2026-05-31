@@ -160,3 +160,11 @@ button:disabled {
   60%  { r: 48; opacity: 0.5; stroke-width: 1.5; }
   100% { r: 58; opacity: 0; stroke-width: 0.5; }
 }
+
+/* Production feedback — "+N🫒" jaillit du bâtiment et s'envole */
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translateY(2px) scale(0.85); }
+  18%  { opacity: 1; transform: translateY(-2px) scale(1.05); }
+  35%  { transform: translateY(-6px) scale(1); }
+  100% { opacity: 0; transform: translateY(-30px) scale(1); }
+}
