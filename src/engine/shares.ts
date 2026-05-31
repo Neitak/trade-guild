@@ -2,7 +2,9 @@ import type { GameState, BuildingId, GameEvent, OwnedBuilding, GuildId } from '.
 import { getRival, updateRival } from './types'
 import buildingDefs from '../data/buildings.json'
 
-const SHARE_STEP = 10 // percent per transaction
+export const SHARE_STEP = 10 // percent per transaction
+export const CONTROL_THRESHOLD = 51 // semantic majority threshold
+export const EFFECTIVE_CONTROL_THRESHOLD = Math.ceil(CONTROL_THRESHOLD / SHARE_STEP) * SHARE_STEP // = 60 given step of 10
 
 function getBuildingDef(id: BuildingId) {
   return (buildingDefs as any[]).find(b => b.id === id)!

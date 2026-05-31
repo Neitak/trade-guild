@@ -37,13 +37,9 @@ export default function App() {
   useEffect(() => {
     (window as any).__GAME_STATE__ = state
     ;(window as any).__DEV__ = {
-      // Skip Phase 0: give player 10 wood so Phase 0 is done and sawmill is unlockable
       skipToPhase1: () => setState(prev => ({
         ...prev,
-        player: {
-          ...prev.player,
-          inventory: { ...prev.player.inventory, wood: 10 },
-        },
+        player: { ...prev.player, inventory: { ...prev.player.inventory, wood: 10 } },
       })),
     }
   }, [state])

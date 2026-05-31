@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { GameState, BuildingId, GuildId, SlotType } from '../engine/types'
 import { GUILD_COLORS } from '../engine/types'
-import { previewBuyShare } from '../engine/shares'
+import { previewBuyShare, EFFECTIVE_CONTROL_THRESHOLD } from '../engine/shares'
 import { SAWMILL_PRODUCTION, AUBERGE_REVENUE } from '../engine/buildings'
 import buildingDefs from '../data/buildings.json'
 import bgMap from '../../images/bg01.png'
@@ -40,6 +40,23 @@ function canAffordBuilding(defId: string, state: GameState): boolean {
 // Find all buildings available for a given slot type
 function getBuildingsForSlot(slotType: SlotType): any[] {
   return (buildingDefs as any[]).filter(d => d.slotType === slotType)
+}
+
+function arcPath(cx: number, cy: number, r: number, pct: number): string {
+  if (pct <= 0) return ''
+  if (pct >= 100) return `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r}`
+  const angle = -Math.PI / 2 + (pct / 100) * 2 * Math.PI
+  const endX = cx + r * Math.cos(angle)
+  const endY = cy + r * Math.sin(angle)
+  return `M ${cx} ${cy - r} A ${r} ${r} 0 ${pct > 50 ? 1 : 0} 1 ${endX} ${endY}`
+}
+
+function notchCoords(cx: number, cy: number, r: number, pct: number) {
+  const a = -Math.PI / 2 + (pct / 100) * 2 * Math.PI
+  return {
+    x1: cx + (r - 4) * Math.cos(a), y1: cy + (r - 4) * Math.sin(a),
+    x2: cx + (r + 4) * Math.cos(a), y2: cy + (r + 4) * Math.sin(a),
+  }
 }
 
 interface Props {
@@ -127,13 +144,6 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
     if (owner === 'raph')   return 'rgba(155,89,182,0.30)'
     return 'rgba(18,18,36,0.88)'
   }
-  function renderShareInfo(instanceId: string) {
-    const playerShares = player.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
-    const ownerRival   = rivals.find(r => r.buildings.some(b => b.instanceId === instanceId))
-    const rivalShares  = ownerRival?.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
-    const rivalName    = ownerRival?.name ?? 'Rival'
-    return `Toi: ${playerShares}% — ${rivalName}: ${rivalShares}%`
-  }
 
   // Wonder progress
   const cathedrale  = wonders.find(w => w.id === 'grande_cathedrale')!
@@ -162,8 +172,7 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
       </h2>
 
       <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ flex: 1, borderRadius: 8 }}>
-        <image href={bgMap} x={0} y={0} width={svgW} height={svgH} preserveAspectRatio="xMidYMid slice" />
-        <rect x={0} y={0} width={svgW} height={svgH} fill="rgba(10,10,25,0.50)" />
+        <rect x={0} y={0} width={svgW} height={svgH} fill="#0d0d1a" />
 
         {/* Zone bands */}
         {ZONES.map(z => (
@@ -176,23 +185,6 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
           </g>
         ))}
 
-        {/* Edges */}
-        {EDGES.map(([from, to], i) => {
-          const a = NODE_POSITIONS[from]
-          const b = NODE_POSITIONS[to]
-          if (!a || !b) return null
-          const aOwner = getNodeOwner(from)
-          const bOwner = getNodeOwner(to)
-          const bothOwned = aOwner === 'player' && bOwner === 'player'
-          return (
-            <line key={i}
-              x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-              stroke={bothOwned ? 'rgba(76,175,106,0.40)' : 'rgba(201,168,76,0.12)'}
-              strokeWidth={bothOwned ? 2 : 1.5}
-              strokeDasharray="6 4"
-            />
-          )
-        })}
 
         {/* Nodes */}
         {Object.entries(NODE_POSITIONS).map(([nodeId, pos]) => {
@@ -253,6 +245,22 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
           // Available buildings for this slot (player choice)
           const availableBuildings = canBuy && slotType ? getBuildingsForSlot(slotType) : []
 
+          // Share arc — player arc on rival buildings, rival arc on player buildings
+          let shareArcPct = 0
+          let shareArcColor = ''
+          if (!isWonder && instanceId) {
+            if (owner !== 'player') {
+              shareArcPct = player.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
+              shareArcColor = 'var(--player-color)'
+            } else {
+              const rivalOwner = rivals.find(r => r.buildings.some(b => b.instanceId === instanceId))
+              shareArcPct = rivalOwner?.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
+              shareArcColor = rivalOwner?.color ?? ''
+            }
+          }
+          const arcR = R + 5
+          const notch = shareArcPct > 0 ? notchCoords(pos.x, pos.y, arcR, EFFECTIVE_CONTROL_THRESHOLD) : null
+
           return (
             <g key={nodeId}>
               {pulsingNodes.has(nodeId) && (
@@ -269,6 +277,18 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 strokeWidth={owner ? 3 : (isLocked ? 0.8 : 1.5)}
                 style={{ filter: owner ? `drop-shadow(0 0 10px ${color}70)` : undefined }}
               />
+
+              {/* Share arc + control threshold notch */}
+              {shareArcPct > 0 && (
+                <>
+                  <path d={arcPath(pos.x, pos.y, arcR, shareArcPct)}
+                    fill="none" stroke={shareArcColor} strokeWidth={3.5} strokeLinecap="round" opacity={0.85} />
+                  {notch && (
+                    <line x1={notch.x1} y1={notch.y1} x2={notch.x2} y2={notch.y2}
+                      stroke="#c9a84c" strokeWidth={2} strokeLinecap="round" />
+                  )}
+                </>
+              )}
 
               <text
                 x={pos.x} y={prodLabel ? pos.y + 2 : pos.y + 7}
@@ -298,11 +318,6 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 </>
               )}
 
-              {owner && instanceId && !isWonder && (
-                <text x={pos.x} y={pos.y + R + 24} textAnchor="middle" fontSize={8} fill={color} fontFamily="var(--font-mono)">
-                  {renderShareInfo(instanceId)}
-                </text>
-              )}
 
               {!isLocked && !isWonder && degradPct >= 15 && (
                 <text x={pos.x} y={pos.y - R - 8} textAnchor="middle" fontSize={9} fill={degradPct >= 30 ? '#c96060' : '#c9a84c'}>
