@@ -2,6 +2,7 @@ import type { GameState, BuildingId, ResourceId, WonderId, GuildId, RivalStrateg
 import { getRival, updateRival } from './types'
 import { rivalBuyFromMarket, rivalSellToMarket } from './market'
 import { rivalBuyBuilding, upgradeBuildingRival } from './buildings'
+import { rivalShareDecisions } from './shares'
 
 // ─── Generic rival decision tree ─────────────────────────────────────────────
 
@@ -16,14 +17,8 @@ export function runRivalAI(state: GameState, guildId: GuildId): GameState {
     s = runWoodStrategy(s, guildId)
   }
 
-  // Defensive: buyback shares player stole
-  const rival = getRival(s, guildId)
-  const stolenBuilding = s.player.buildings.find(pb =>
-    rival.buildings.some(rb => rb.instanceId === pb.instanceId)
-  )
-  if (stolenBuilding && rival.gold >= 120) {
-    s = rivalBuyBackShare(s, guildId, stolenBuilding.instanceId)
-  }
+  // V9 — décisions de rachat de parts (symétrique : pille joueur ET autres rivaux, avec grâce)
+  s = rivalShareDecisions(s, guildId)
 
   return s
 }
@@ -327,38 +322,3 @@ function contributeToWonderRival(state: GameState, guildId: GuildId, wonderId: W
   }
 }
 
-// ─── Share buyback (rival) ────────────────────────────────────────────────────
-
-function rivalBuyBackShare(state: GameState, guildId: GuildId, instanceId: string): GameState {
-  const rival = getRival(state, guildId)
-  const playerBuilding = state.player.buildings.find(b => b.instanceId === instanceId)
-  if (!playerBuilding || playerBuilding.shares <= 0) return state
-
-  const STEP = 10
-  const cost = Math.max(5, STEP * 3)
-  if (rival.gold < cost) return state
-
-  const transferred = Math.min(STEP, playerBuilding.shares)
-  const updatedPlayer = {
-    ...state.player,
-    gold: state.player.gold + cost,
-    buildings: state.player.buildings
-      .map(b => b.instanceId === instanceId ? { ...b, shares: b.shares - transferred } : b)
-      .filter(b => b.shares > 0),
-  }
-  const updatedRival = {
-    ...rival,
-    gold: rival.gold - cost,
-    buildings: rival.buildings.map(b => b.instanceId === instanceId ? { ...b, shares: b.shares + transferred } : b),
-  }
-
-  return {
-    ...updateRival({ ...state, player: updatedPlayer }, updatedRival),
-    log: [...state.log, {
-      day: state.day,
-      actor: guildId,
-      type: 'SELL_SHARE',
-      payload: { instanceId, transferredShares: transferred, cost },
-    } as import('./types').GameEvent],
-  }
-}

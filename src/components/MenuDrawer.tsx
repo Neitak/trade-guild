@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { GameState } from '../engine/types'
+import { casesOwnedBy } from '../engine/types'
 import buildingDefs from '../data/buildings.json'
 
 interface Props {
@@ -31,9 +32,9 @@ export function MenuDrawer({ state, onClose }: Props) {
 
     if (def.revenuePerDay) {
       const rev = def.upgradeRevenues ? (def.upgradeRevenues[String(level)] ?? def.revenuePerDay) : def.revenuePerDay
-      return { key: b.instanceId, text: `${name} T${level}`, flow: `+${Math.round(rev * (b.shares / 100))} or/j` }
+      return { key: b.instanceId, text: `${name} T${level}`, flow: `+${Math.round(rev * (casesOwnedBy(b, 'player') / 4))} or/j` }
     }
-    const out = Math.round((def.productionPerDay ?? 0) * (b.shares / 100))
+    const out = Math.round((def.productionPerDay ?? 0) * (casesOwnedBy(b, 'player') / 4))
     const outIcon = RESOURCE_ICONS[def.produces] ?? ''
     if (def.autoConsumeInput) {
       const inIcon = RESOURCE_ICONS[def.autoConsumeInput] ?? ''

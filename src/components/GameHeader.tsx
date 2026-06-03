@@ -1,4 +1,5 @@
 import type { GameState } from '../engine/types'
+import { casesOwnedBy } from '../engine/types'
 import buildingDefs from '../data/buildings.json'
 
 interface Props {
@@ -28,7 +29,7 @@ export function GameHeader({ state }: Props) {
       const rev = def.upgradeRevenues
         ? (def.upgradeRevenues[String(level)] ?? def.revenuePerDay)
         : def.revenuePerDay
-      return sum + rev * (b.shares / 100)
+      return sum + rev * (casesOwnedBy(b, 'player') / 4)
     }, 0)
   )
 

@@ -1,109 +1,204 @@
 import type { GameState, BuildingId, GameEvent, OwnedBuilding, GuildId } from './types'
-import { getRival, updateRival } from './types'
+import { getRival, updateRival, casesOwnedBy, operatorOf, sharePct } from './types'
 import buildingDefs from '../data/buildings.json'
 
-export const SHARE_STEP = 10 // percent per transaction
-export const CONTROL_THRESHOLD = 51 // semantic majority threshold
-export const EFFECTIVE_CONTROL_THRESHOLD = Math.ceil(CONTROL_THRESHOLD / SHARE_STEP) * SHARE_STEP // = 60 given step of 10
+// ─── Tuning (placeholders — voir project-shares-4bars-schema.md) ──────────────
+export const SHARE_CASE_PCT = 25          // une case = 25 %
+export const PRICE_MULT_DAYS = 12         // prix d'une case ≈ 12 jours de revenu × 25 %
+export const TRANSFER_SURCHARGE = 1.5     // surenchère ×1.5 par changement de main
 
 function getBuildingDef(id: BuildingId) {
   return (buildingDefs as any[]).find(b => b.id === id)!
 }
 
 function getGuild(state: GameState, guildId: GuildId) {
-  if (guildId === 'player') return state.player
-  return getRival(state, guildId)
+  return guildId === 'player' ? state.player : getRival(state, guildId)
 }
 
-function buildingCurrentYield(state: GameState, guildId: GuildId, instanceId: string): number {
-  const guild = getGuild(state, guildId)
-  const building = guild.buildings.find(b => b.instanceId === instanceId)
-  if (!building) return 0
+// Localise le bâtiment canonique (dans le tableau de son bâtisseur) + sa guilde hôte.
+function findBuilding(state: GameState, instanceId: string): { building: OwnedBuilding; hostId: GuildId } | null {
+  const all: { g: GuildId; list: OwnedBuilding[] }[] = [
+    { g: 'player', list: state.player.buildings },
+    ...state.rivals.map(r => ({ g: r.id, list: r.buildings })),
+  ]
+  for (const { g, list } of all) {
+    const b = list.find(x => x.instanceId === instanceId)
+    if (b) return { building: b, hostId: g }
+  }
+  return null
+}
+
+// Valeur or/jour d'un bâtiment (revenu direct, ou production × prix marché).
+function buildingDailyGoldValue(state: GameState, building: OwnedBuilding): number {
   const def = getBuildingDef(building.defId)
-  // Yield = production per day OR gold revenue per day (for Tier 2)
-  return def.revenuePerDay ?? def.productionPerDay ?? 0
+  const level = building.level ?? 1
+  if (def.revenuePerDay) {
+    return def.upgradeRevenues ? (def.upgradeRevenues[String(level)] ?? def.revenuePerDay) : def.revenuePerDay
+  }
+  if (def.produces) {
+    const mkt = state.market.resources[def.produces as keyof typeof state.market.resources]
+    return (def.productionPerDay ?? 0) * (mkt?.currentPrice ?? 0)
+  }
+  return 0
 }
 
-function sharePriceInGold(state: GameState, guildId: GuildId, instanceId: string): number {
-  const yieldPerDay = buildingCurrentYield(state, guildId, instanceId)
-  // Price per 10% share = yield * 3 (roughly 30 days payback)
-  return Math.max(5, Math.round(yieldPerDay * 3))
+// Prix d'UNE case (25 %), indexé sur la valeur + surenchère par transfert.
+export function sharePriceInGold(state: GameState, building: OwnedBuilding): number {
+  const daily = buildingDailyGoldValue(state, building)
+  const base = daily * (SHARE_CASE_PCT / 100) * PRICE_MULT_DAYS
+  const surcharge = Math.pow(TRANSFER_SURCHARGE, building.transferCount ?? 0)
+  return Math.max(5, Math.round(base * surcharge))
 }
 
-// ─── Player buys a share of a rival's building ───────────────────────────────
+// La victime par défaut = le plus gros propriétaire qui n'est pas l'acheteur.
+function defaultVictim(building: OwnedBuilding, buyerId: GuildId): GuildId | null {
+  const counts = new Map<GuildId, number>()
+  for (const c of building.cases) if (c !== buyerId) counts.set(c, (counts.get(c) ?? 0) + 1)
+  let best: GuildId | null = null
+  let max = 0
+  for (const [g, n] of counts) if (n > max) { max = n; best = g }
+  return best
+}
 
-export function buyShare(state: GameState, rivalInstanceId: string): GameState {
-  // Find which rival owns this building
-  const ownerRival = state.rivals.find(r => r.buildings.some(b => b.instanceId === rivalInstanceId))
-  if (!ownerRival) return state
-  const rivalBuilding = ownerRival.buildings.find(b => b.instanceId === rivalInstanceId)!
-  if (rivalBuilding.shares <= 0) return state
+// Regroupe les cases par propriétaire : bâtisseur ancré à gauche, puis les autres
+// dans un ordre stable (player, brice, raph, rita). La barre raconte la prise.
+function regroupCases(building: OwnedBuilding): GuildId[] {
+  const order: GuildId[] = ['player', 'brice', 'raph', 'rita']
+  const owners = [building.builtBy, ...order.filter(g => g !== building.builtBy)]
+  const out: GuildId[] = []
+  for (const g of owners) {
+    for (let i = 0; i < casesOwnedBy(building, g); i++) out.push(g)
+  }
+  return out
+}
 
-  const cost = sharePriceInGold(state, ownerRival.id, rivalInstanceId)
-  if (state.player.gold < cost) return state
+// ─── Rachat d'une case (générique, symétrique) ────────────────────────────────
 
-  const transferredShares = Math.min(SHARE_STEP, rivalBuilding.shares)
+export function buyCase(state: GameState, instanceId: string, buyerId: GuildId, fromId?: GuildId): GameState {
+  const found = findBuilding(state, instanceId)
+  if (!found) return state
+  const { building, hostId } = found
 
-  const existingPlayerBuilding = state.player.buildings.find(b => b.instanceId === rivalInstanceId)
-  const updatedPlayerBuildings = existingPlayerBuilding
-    ? state.player.buildings.map(b =>
-        b.instanceId === rivalInstanceId ? { ...b, shares: b.shares + transferredShares } : b
-      )
-    : [...state.player.buildings, { defId: rivalBuilding.defId, instanceId: rivalInstanceId, shares: transferredShares }]
+  const victim = fromId ?? defaultVictim(building, buyerId)
+  if (!victim || victim === buyerId) return state
+  if (casesOwnedBy(building, victim) <= 0) return state
 
-  const playerShares = (existingPlayerBuilding?.shares ?? 0) + transferredShares
-  const controlTransferred = playerShares >= 51
+  const cost = sharePriceInGold(state, building)
+  const buyer = getGuild(state, buyerId)
+  if (buyer.gold < cost) return state
 
-  const updatedRival = {
-    ...ownerRival,
-    buildings: ownerRival.buildings.map(b =>
-      b.instanceId === rivalInstanceId ? { ...b, shares: b.shares - transferredShares } : b
-    ),
+  // Transfert : une case de la victime → l'acheteur, puis regroupement.
+  const idx = building.cases.indexOf(victim)
+  const nextCases = [...building.cases]
+  nextCases[idx] = buyerId
+  const updatedBuilding: OwnedBuilding = {
+    ...building,
+    cases: regroupCases({ ...building, cases: nextCases }),
+    transferCount: (building.transferCount ?? 0) + 1,
   }
 
-  const updatedMap = controlTransferred
-    ? { nodes: state.map.nodes.map(n => n.buildingInstanceId === rivalInstanceId ? { ...n, ownedBy: 'player' as const } : n) }
-    : state.map
+  // Écrit le bâtiment mis à jour dans le tableau de la guilde hôte (bâtisseur).
+  let s = state
+  const host = getGuild(s, hostId)
+  const hostUpdated = { ...host, buildings: host.buildings.map(b => b.instanceId === instanceId ? updatedBuilding : b) }
+  s = hostId === 'player' ? { ...s, player: hostUpdated as typeof s.player } : updateRival(s, hostUpdated)
+
+  // Flux d'or : l'acheteur paie, la VICTIME encaisse.
+  s = adjustGold(s, buyerId, -cost)
+  s = adjustGold(s, victim, +cost)
+
+  // Carte : ownedBy = opérateur (proprio majoritaire) pour le visuel.
+  const newOperator = operatorOf(updatedBuilding)
+  s = { ...s, map: { nodes: s.map.nodes.map(n => n.buildingInstanceId === instanceId ? { ...n, ownedBy: newOperator } : n) } }
 
   const event: GameEvent = {
-    day: state.day,
-    actor: 'player',
+    day: s.day,
+    actor: buyerId,
     type: 'BUY_SHARE',
-    payload: { instanceId: rivalInstanceId, defId: rivalBuilding.defId, cost, transferredShares, playerTotalShares: playerShares },
+    payload: { instanceId, defId: building.defId, cost, from: victim, buyerPct: sharePct(updatedBuilding, buyerId) },
   }
-
-  return {
-    ...updateRival({ ...state, player: { ...state.player, gold: state.player.gold - cost, buildings: updatedPlayerBuildings } }, updatedRival),
-    map: updatedMap,
-    log: [...state.log, event],
-  }
+  return { ...s, log: [...s.log, event] }
 }
 
-// (rivalBuyBackShare is handled in ai.ts — shares.ts only exposes player-facing actions)
+function adjustGold(state: GameState, guildId: GuildId, delta: number): GameState {
+  const isPlayer = guildId === 'player'
+  const guild = getGuild(state, guildId)
+  const updated = { ...guild, gold: guild.gold + delta }
+  return isPlayer ? { ...state, player: updated as typeof state.player } : updateRival(state, updated)
+}
 
-// ─── Preview helper for UI tooltip ───────────────────────────────────────────
+// ─── Action joueur (rachète une case au plus gros proprio non-joueur) ─────────
 
-export function previewBuyShare(state: GameState, rivalInstanceId: string) {
-  const ownerRival = state.rivals.find(r => r.buildings.some(b => b.instanceId === rivalInstanceId))
-  if (!ownerRival) return null
-  const rivalBuilding = ownerRival.buildings.find(b => b.instanceId === rivalInstanceId)!
+export function buyShare(state: GameState, instanceId: string): GameState {
+  return buyCase(state, instanceId, 'player')
+}
 
-  const cost = sharePriceInGold(state, ownerRival.id, rivalInstanceId)
-  const existingPlayerShares = state.player.buildings.find(b => b.instanceId === rivalInstanceId)?.shares ?? 0
-  const newPlayerShares = existingPlayerShares + SHARE_STEP
-  const def = getBuildingDef(rivalBuilding.defId)
-  const yieldPerDay = buildingCurrentYield(state, ownerRival.id, rivalInstanceId)
-  const playerCutPerDay = Math.round(yieldPerDay * (SHARE_STEP / 100))
-  const controlTransferred = newPlayerShares >= 51
+// ─── Décisions de rachat IA (symétrique, 1×/jour) ─────────────────────────────
+// Tuning délégué (voir project-shares-4bars-schema.md). Placeholders à affiner par sim.
+const GRACE_DAYS = 10        // l'IA ne fait pas tomber le joueur sous 50 % avant J10
+const PAYBACK_MAX = 20       // n'achète que si la case se rembourse en < 20 jours
+const GOLD_RESERVE = 40      // garde au moins ça pour la stratégie cœur
+const SPEND_FRACTION = 0.30  // ≤ 30 % de l'or libre/jour en parts
+
+export function rivalShareDecisions(state: GameState, guildId: GuildId): GameState {
+  let s = state
+  let budget = Math.max(0, getGuild(s, guildId).gold - GOLD_RESERVE) * SPEND_FRACTION
+
+  // Toutes les cibles : tout bâtiment du jeu (joueur + rivaux), y compris entre rivaux.
+  const targets: string[] = []
+  for (const b of s.player.buildings) targets.push(b.instanceId)
+  for (const r of s.rivals) for (const b of r.buildings) targets.push(b.instanceId)
+
+  for (const instanceId of targets) {
+    if (budget <= 0) break
+    const found = findBuilding(s, instanceId)
+    if (!found) continue
+    const { building } = found
+    if (casesOwnedBy(building, guildId) >= 4) continue // déjà 100 % à moi
+
+    const victim = defaultVictim(building, guildId)
+    if (!victim) continue
+    // Grâce : ne pas réduire le joueur sous 50 % avant J10
+    if (victim === 'player' && s.day < GRACE_DAYS && sharePct(building, 'player') <= 50) continue
+
+    const me = getGuild(s, guildId)
+    const cost = sharePriceInGold(s, building)
+    if (cost > budget || me.gold < cost + GOLD_RESERVE) continue
+
+    // ROI : la case (25 % du revenu/jour) doit se rembourser en < PAYBACK_MAX jours
+    const dailyCut = buildingDailyGoldValue(s, building) * (SHARE_CASE_PCT / 100)
+    if (dailyCut <= 0 || cost / dailyCut > PAYBACK_MAX) continue
+
+    const before = getGuild(s, guildId).gold
+    s = buyCase(s, instanceId, guildId, victim)
+    budget -= Math.max(before - getGuild(s, guildId).gold, 0)
+  }
+  return s
+}
+
+// ─── Preview pour la bulle UI ─────────────────────────────────────────────────
+
+export function previewBuyShare(state: GameState, instanceId: string) {
+  const found = findBuilding(state, instanceId)
+  if (!found) return null
+  const { building } = found
+  const victim = defaultVictim(building, 'player')
+  if (!victim) return null
+
+  const cost = sharePriceInGold(state, building)
+  const def = getBuildingDef(building.defId)
+  const victimGuild = getGuild(state, victim)
+  const daily = buildingDailyGoldValue(state, building)
+  const newPlayerPct = Math.min(100, sharePct(building, 'player') + SHARE_CASE_PCT)
 
   return {
     cost,
     canAfford: state.player.gold >= cost,
-    newPlayerShares,
-    playerCutPerDay,
-    controlTransferred,
+    newPlayerShares: newPlayerPct,
+    playerCutPerDay: Math.round(daily * (SHARE_CASE_PCT / 100)),
     buildingName: def.name,
-    ownerName: ownerRival.name,
-    ownerColor: ownerRival.color,
+    ownerName: victimGuild.name,
+    ownerColor: victimGuild.color,
+    victimId: victim,
   }
 }

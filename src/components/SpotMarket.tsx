@@ -4,6 +4,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import type { GameState, ResourceId, WonderId, ResourceMarket, BuildingId } from '../engine/types'
+import { casesOwnedBy } from '../engine/types'
 import { previewSell, previewBuy } from '../engine/market'
 import { SAWMILL_PRODUCTION } from '../engine/buildings'
 import { AZUR } from '../theme'
@@ -60,7 +61,7 @@ function netFlowFor(state: GameState, resourceId: ResourceId): number {
   for (const b of state.player.buildings) {
     const def = (buildingDefs as any[]).find(d => d.id === b.defId)
     if (!def) continue
-    const shares = (b.shares ?? 100) / 100
+    const shares = casesOwnedBy(b, 'player') / 4
     if (def.produces === resourceId) {
       const level = b.level ?? 1
       const levelBonus = def.upgradable ? (SAWMILL_PRODUCTION[level] / SAWMILL_PRODUCTION[1]) : 1

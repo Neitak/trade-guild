@@ -117,9 +117,42 @@ export interface MarketState {
 export interface OwnedBuilding {
   defId: BuildingId
   instanceId: string
-  shares: number // percentage owned by this guild (0–100)
-  degradation?: number // 0.0 → 0.4 — Tier 1 extractors only
-  level?: number        // 1–5 for upgradable buildings (default 1)
+  // ── V9 — système de parts à 4 cases (25 % chacune) ──
+  // `cases` a TOUJOURS longueur 4 : chaque entrée = la guilde propriétaire de cette case.
+  // Le bâtisseur remplit les 4 cases à la construction (100 %). Ordre = rangement visuel
+  // (bâtisseur ancré à gauche). Le bâtiment reste canonique dans le tableau de son bâtisseur ;
+  // les co-propriétaires n'ont PAS d'entrée dupliquée — l'ownership vit dans `cases`.
+  cases: GuildId[]
+  builtBy: GuildId         // fondateur (ancre gauche de la barre)
+  transferCount?: number   // nb de cases ayant changé de main (surenchère du rachat)
+  degradation?: number     // 0.0 → 0.4 — Tier 1 extractors only
+  level?: number           // 1–5 for upgradable buildings (default 1)
+}
+
+// ── Helpers parts (4 cases) ──
+export function casesOwnedBy(b: OwnedBuilding, g: GuildId): number {
+  return b.cases.filter(c => c === g).length
+}
+/** % détenu par une guilde (0/25/50/75/100). */
+export function sharePct(b: OwnedBuilding, g: GuildId): number {
+  return casesOwnedBy(b, g) * 25
+}
+/** Liste des guildes co-propriétaires (au moins 1 case), dédupliquée. */
+export function ownersOf(b: OwnedBuilding): GuildId[] {
+  return [...new Set(b.cases)]
+}
+/** Opérateur = propriétaire MAJORITAIRE (paie les intrants). Égalité → le bâtisseur s'il est à égalité, sinon le 1er. */
+export function operatorOf(b: OwnedBuilding): GuildId {
+  const counts = new Map<GuildId, number>()
+  for (const c of b.cases) counts.set(c, (counts.get(c) ?? 0) + 1)
+  let max = 0
+  let leaders: GuildId[] = []
+  for (const [g, n] of counts) {
+    if (n > max) { max = n; leaders = [g] }
+    else if (n === max) leaders.push(g)
+  }
+  if (leaders.includes(b.builtBy)) return b.builtBy
+  return leaders[0]
 }
 
 export interface GuildState {

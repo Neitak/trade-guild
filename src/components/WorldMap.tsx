@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import type { GameState, BuildingId, GuildId, SlotType } from '../engine/types'
-import { GUILD_COLORS } from '../engine/types'
-import { previewBuyShare, EFFECTIVE_CONTROL_THRESHOLD } from '../engine/shares'
+import { GUILD_COLORS, casesOwnedBy } from '../engine/types'
+import { previewBuyShare } from '../engine/shares'
 import { SAWMILL_PRODUCTION, AUBERGE_REVENUE } from '../engine/buildings'
 import buildingDefs from '../data/buildings.json'
 import { AZUR } from '../theme'
@@ -427,33 +427,22 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
           // Available buildings for this slot (player choice)
           const availableBuildings = canBuy && slotType ? getBuildingsForSlot(slotType) : []
 
-          // Share arc — player arc on rival buildings, rival arc on player buildings
-          let shareArcPct = 0
-          let shareArcColor = ''
-          if (!isWonder && instanceId) {
-            if (owner !== 'player') {
-              shareArcPct = player.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
-              shareArcColor = 'var(--player-color)'
-            } else {
-              const rivalOwner = rivals.find(r => r.buildings.some(b => b.instanceId === instanceId))
-              shareArcPct = rivalOwner?.buildings.find(b => b.instanceId === instanceId)?.shares ?? 0
-              shareArcColor = rivalOwner?.color ?? ''
-            }
-          }
-          const arcR = R + 5
-          const notch = shareArcPct > 0 ? notchCoords(pos.x, pos.y, arcR, EFFECTIVE_CONTROL_THRESHOLD) : null
+          // Mini-barre 4 cases : couleur du propriétaire de chaque case (coup d'œil permanent)
+          const caseColors: string[] | null = (!isWonder && ownedBuilding)
+            ? ownedBuilding.cases.map(g => GUILD_COLORS[g])
+            : null
 
-          // Rival cut — shown on player-owned buildings where rival still has shares
+          // Rival cut — shown on player-owned buildings where a rival holds cases
           let rivalCutLabel: string | null = null
           let rivalCutColor = ''
-          if (isPlayerOwned && instanceId && buildingDef) {
-            const rivalWithShares = rivals.find(r => r.buildings.some(b => b.instanceId === instanceId && b.shares > 0))
+          if (isPlayerOwned && ownedBuilding && buildingDef) {
+            const rivalWithShares = rivals.find(r => casesOwnedBy(ownedBuilding, r.id) > 0)
             if (rivalWithShares) {
-              const rShares = rivalWithShares.buildings.find(b => b.instanceId === instanceId)!.shares
+              const rPct = casesOwnedBy(ownedBuilding, rivalWithShares.id) * 25
               if (isAuberge && dailyRevenue > 0) {
-                rivalCutLabel = `${rivalWithShares.name}: −${Math.round(dailyRevenue * rShares / 100)}or/j`
+                rivalCutLabel = `${rivalWithShares.name}: −${Math.round(dailyRevenue * rPct / 100)}or/j`
               } else if (effectiveProd > 0 && prodIcon) {
-                rivalCutLabel = `${rivalWithShares.name}: −${Math.round(effectiveProd * rShares / 100)}${prodIcon}/j`
+                rivalCutLabel = `${rivalWithShares.name}: −${Math.round(effectiveProd * rPct / 100)}${prodIcon}/j`
               }
               rivalCutColor = rivalWithShares.color
             }
@@ -505,9 +494,9 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
               svgX: pos.x, svgY: btnAnchorY, stack: 0,
               color: sharePreview.ownerColor,
               disabled: !sharePreview.canAfford,
-              title: `Acheter 10% de ${sharePreview.ownerName} pour ${sharePreview.cost}or → +${sharePreview.playerCutPerDay}/j`,
+              title: `Racheter 25% à ${sharePreview.ownerName} pour ${sharePreview.cost}or → +${sharePreview.playerCutPerDay}/j`,
               onClick: () => onBuyShare(instanceId!),
-              content: <span style={{ fontFamily: 'var(--font-num)' }}>Part 10% — {sharePreview.cost}or (+{sharePreview.playerCutPerDay}/j)</span>,
+              content: <span style={{ fontFamily: 'var(--font-num)' }}>Racheter 25% à {sharePreview.ownerName} — {sharePreview.cost}or</span>,
             })
           }
 
@@ -535,17 +524,22 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
                 onClick={availableBuildings.length === 1 ? () => { onBuyBuilding(availableBuildings[0].id as BuildingId); setHoveredNode(null) } : undefined}
               />
 
-              {/* Share arc + control threshold notch */}
-              {shareArcPct > 0 && (
-                <>
-                  <path d={arcPath(pos.x, pos.y, arcR, shareArcPct)}
-                    fill="none" stroke={shareArcColor} strokeWidth={3.5} strokeLinecap="round" opacity={0.90} />
-                  {notch && (
-                    <line x1={notch.x1} y1={notch.y1} x2={notch.x2} y2={notch.y2}
-                      stroke="var(--accent)" strokeWidth={2} strokeLinecap="round" />
-                  )}
-                </>
-              )}
+              {/* Mini-barre 4 cases — propriétaires (V9, remplace l'anneau de parts) */}
+              {caseColors && (() => {
+                const segW = 9, gap = 1.5
+                const totalW = 4 * segW + 3 * gap
+                const y0 = pos.y + R + 4
+                return (
+                  <g>
+                    {caseColors.map((c, i) => (
+                      <rect key={i}
+                        x={pos.x - totalW / 2 + i * (segW + gap)} y={y0}
+                        width={segW} height={4} rx={1}
+                        fill={c} stroke="rgba(0,0,0,0.4)" strokeWidth={0.5} opacity={0.95} />
+                    ))}
+                  </g>
+                )
+              })()}
 
               <text
                 x={pos.x} y={prodLabel ? pos.y + 2 : pos.y + 7}

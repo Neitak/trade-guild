@@ -1,5 +1,5 @@
 import type { GameState, BuildingId, GuildState, OwnedBuilding, GameEvent, GuildId, ResourceId } from './types'
-import { getRival, updateRival, nextAvgCost } from './types'
+import { getRival, updateRival, nextAvgCost, ownersOf, casesOwnedBy, operatorOf } from './types'
 import buildingDefs from '../data/buildings.json'
 
 // ─── Sawmill upgrade table ────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ export function buyBuilding(state: GameState, defId: BuildingId): GameState {
   }
 
   const instanceId = makeInstanceId(defId, 'player')
-  const newBuilding: OwnedBuilding = { defId, instanceId, shares: 100, level: 1 }
+  const newBuilding: OwnedBuilding = { defId, instanceId, cases: ['player', 'player', 'player', 'player'], builtBy: 'player', transferCount: 0, level: 1 }
 
   let newGold = state.player.gold
   const newInventory = { ...state.player.inventory }
@@ -199,7 +199,7 @@ export function rivalBuyBuilding(state: GameState, guildId: GuildId, defId: Buil
   }
 
   const instanceId = makeInstanceId(defId, guildId)
-  const newBuilding: OwnedBuilding = { defId, instanceId, shares: 100, level: 1 }
+  const newBuilding: OwnedBuilding = { defId, instanceId, cases: [guildId, guildId, guildId, guildId], builtBy: guildId, transferCount: 0, level: 1 }
 
   let newGold = rival.gold
   const newInventory = { ...rival.inventory }
@@ -252,186 +252,153 @@ function addBuildingToMap(
   return { nodes }
 }
 
-// ─── Production (end of day) ──────────────────────────────────────────────────
+// ─── Production (end of day) — distribuée au prorata des 4 cases ───────────────
+//
+// V9 : chaque bâtiment est canonique dans le tableau de son BÂTISSEUR, mais sa
+// production est répartie entre les propriétaires de cases (`building.cases`).
+// L'OPÉRATEUR (= propriétaire majoritaire) paie les intrants des ateliers ; les
+// autres co-propriétaires skimment gratuitement. Si l'opérateur ne peut pas payer
+// l'intrant, le bâtiment ne produit rien ce jour (jauge gelée).
 
 export function produceResources(state: GameState): GameState {
   let s = state
-
-  s = applyGuildProduction(s, 'player')
-
-  for (const rival of s.rivals) {
-    s = applyGuildProduction(s, rival.id)
+  // Itère sur les bâtiments de chaque guilde (chacun est canonique chez son bâtisseur).
+  const guildIds: GuildId[] = ['player', ...s.rivals.map(r => r.id)]
+  for (const gid of guildIds) {
+    const owner = gid === 'player' ? s.player : getRival(s, gid)
+    for (const building of owner.buildings) {
+      s = applyBuildingProduction(s, building)
+    }
   }
-
   return s
 }
 
-function applyGuildProduction(state: GameState, guildId: GuildId): GameState {
+// ─── Helpers d'écriture immuable par guilde ───────────────────────────────────
+
+function addInventory(state: GameState, guildId: GuildId, resId: ResourceId, qty: number): GameState {
+  if (qty === 0) return state
   const isPlayer = guildId === 'player'
   const guild = isPlayer ? state.player : getRival(state, guildId)
-  let s = state
-
-  for (const building of guild.buildings) {
-    const def = getBuildingDef(building.defId)
-
-    // ── Atelier auto-consume (e.g. Charpenterie: wood → meuble) ──────────────
-    if (def.autoConsumeInput && def.produces) {
-      s = applyAtelierProduction(s, guildId, building, def)
-      continue
-    }
-
-    // ── Standard Tier 1 producer ──────────────────────────────────────────────
-    if (def.produces && def.productionPerDay > 0) {
-      const degradation = building.degradation ?? 0
-      const level = building.level ?? 1
-      const levelBonus = def.upgradable ? (SAWMILL_PRODUCTION[level] / SAWMILL_PRODUCTION[1]) : 1
-      const produced = Math.round(def.productionPerDay * levelBonus * (building.shares / 100) * (1 - degradation))
-
-      const event: GameEvent = {
-        day: s.day,
-        actor: guildId,
-        type: 'PRODUCTION',
-        payload: { buildingId: building.defId, resource: def.produces, qty: produced, degradation, level },
-      }
-
-      const currentGuild = isPlayer ? s.player : getRival(s, guildId)
-      const prodId = def.produces as ResourceId
-      const updatedGuild = {
-        ...currentGuild,
-        inventory: {
-          ...currentGuild.inventory,
-          [def.produces]: (currentGuild.inventory[prodId] ?? 0) + produced,
-        },
-        // production = gratuite (coût 0) → tire le coût moyen vers le bas
-        inventoryAvgCost: {
-          ...(currentGuild.inventoryAvgCost ?? {}),
-          [prodId]: nextAvgCost(currentGuild.inventoryAvgCost?.[prodId] ?? 0, currentGuild.inventory[prodId] ?? 0, produced, 0),
-        },
-      }
-
-      s = isPlayer
-        ? { ...s, player: updatedGuild as typeof s.player, log: [...s.log, event] }
-        : { ...updateRival(s, updatedGuild), log: [...s.log, event] }
-    }
-
-    // ── Tier 2/3 revenue (Tier 3 uses level table) ───────────────────────────
-    if (def.revenuePerDay) {
-      const level = building.level ?? 1
-      const baseRev = def.upgradeRevenues ? (def.upgradeRevenues[String(level)] ?? def.revenuePerDay) : def.revenuePerDay
-      const rev = Math.round(baseRev * (building.shares / 100))
-      const event: GameEvent = {
-        day: s.day,
-        actor: guildId,
-        type: 'REVENUE',
-        payload: { buildingId: building.defId, gold: rev },
-      }
-
-      const currentGuild = isPlayer ? s.player : getRival(s, guildId)
-      const updatedGuild = { ...currentGuild, gold: currentGuild.gold + rev }
-
-      s = isPlayer
-        ? { ...s, player: updatedGuild as typeof s.player, log: [...s.log, event] }
-        : { ...updateRival(s, updatedGuild), log: [...s.log, event] }
-    }
+  const updated = {
+    ...guild,
+    inventory: { ...guild.inventory, [resId]: (guild.inventory[resId] ?? 0) + qty },
+    // production = gratuite (coût 0) → tire le coût moyen vers le bas
+    inventoryAvgCost: {
+      ...(guild.inventoryAvgCost ?? {}),
+      [resId]: nextAvgCost(guild.inventoryAvgCost?.[resId] ?? 0, guild.inventory[resId] ?? 0, qty, 0),
+    },
   }
-
-  return s
+  return isPlayer ? { ...state, player: updated as typeof state.player } : updateRival(state, updated)
 }
 
-// ─── Atelier production (auto-consume input → produce output) ─────────────────
-// Priority: inventory first, then buy from market, else stop.
-
-function applyAtelierProduction(
-  state: GameState,
-  guildId: GuildId,
-  building: OwnedBuilding,
-  def: any
-): GameState {
+function addGold(state: GameState, guildId: GuildId, amount: number): GameState {
+  if (amount === 0) return state
   const isPlayer = guildId === 'player'
-  const inputId = def.autoConsumeInput as ResourceId
-  const inputQty = (def.autoConsumeQty as number) ?? 1
-  const outputId = def.produces as ResourceId
-  const outputQty = Math.round((def.productionPerDay as number) * (building.shares / 100))
-
-  if (outputQty <= 0) return state
-
   const guild = isPlayer ? state.player : getRival(state, guildId)
-  const haveInput = guild.inventory[inputId] ?? 0
+  const updated = { ...guild, gold: guild.gold + amount }
+  return isPlayer ? { ...state, player: updated as typeof state.player } : updateRival(state, updated)
+}
 
+/**
+ * Répartit `total` unités entre les propriétaires de cases (prorata) via la
+ * méthode du plus grand reste → conserve le total EXACT, pas d'inflation au split.
+ */
+function splitProrata(total: number, building: OwnedBuilding): Map<GuildId, number> {
+  const result = new Map<GuildId, number>()
+  const remainders: { g: GuildId; r: number }[] = []
+  let assigned = 0
+  for (const g of ownersOf(building)) {
+    const exact = (total * casesOwnedBy(building, g)) / 4
+    const fl = Math.floor(exact)
+    result.set(g, fl)
+    assigned += fl
+    remainders.push({ g, r: exact - fl })
+  }
+  let leftover = total - assigned
+  remainders.sort((a, b) => b.r - a.r)
+  for (let i = 0; i < remainders.length && leftover > 0; i++) {
+    result.set(remainders[i].g, (result.get(remainders[i].g) ?? 0) + 1)
+    leftover--
+  }
+  return result
+}
+
+function applyBuildingProduction(state: GameState, building: OwnedBuilding): GameState {
+  const def = getBuildingDef(building.defId)
   let s = state
-  let didProduce = false
 
-  if (haveInput >= inputQty) {
-    // Consume from inventory — free run
-    const updatedGuild = {
-      ...guild,
-      inventory: {
-        ...guild.inventory,
-        [inputId]: haveInput - inputQty,
-        [outputId]: (guild.inventory[outputId] ?? 0) + outputQty,
-      },
-      inventoryAvgCost: {
-        ...(guild.inventoryAvgCost ?? {}),
-        [outputId]: nextAvgCost(guild.inventoryAvgCost?.[outputId] ?? 0, guild.inventory[outputId] ?? 0, outputQty, 0),
-      },
-    }
-    s = isPlayer
-      ? { ...s, player: updatedGuild as typeof s.player }
-      : updateRival(s, updatedGuild)
-    didProduce = true
-  } else {
-    // Try to buy input from market
-    const marketEntry = s.market.resources[inputId]
-    if (!marketEntry) return state
+  // ── Atelier (intrant → produit) : l'OPÉRATEUR paie l'intrant ───────────────
+  if (def.autoConsumeInput && def.produces) {
+    const inputId = def.autoConsumeInput as ResourceId
+    const inputQty = (def.autoConsumeQty as number) ?? 1
+    const outputId = def.produces as ResourceId
+    const outputTotal = Math.round(def.productionPerDay as number)
+    if (outputTotal <= 0) return s
 
-    const cost = inputQty * marketEntry.currentPrice
-    const canAfford = guild.gold >= cost && marketEntry.volumeAvailable >= inputQty
+    const operator = operatorOf(building)
+    const opGuild = operator === 'player' ? s.player : getRival(s, operator)
+    const haveInput = opGuild.inventory[inputId] ?? 0
 
-    if (canAfford) {
+    if (haveInput >= inputQty) {
+      // L'opérateur paie l'intrant depuis son stock
+      s = addInventory(s, operator, inputId, -inputQty)
+    } else {
+      // Sinon l'opérateur tente d'acheter l'intrant au marché
+      const marketEntry = s.market.resources[inputId]
+      const cost = inputQty * marketEntry.currentPrice
+      if (opGuild.gold < cost || marketEntry.volumeAvailable < inputQty) {
+        return s // jauge gelée : l'opérateur ne peut pas payer → aucune production
+      }
       const newPrice = marketEntry.currentPrice * (1 + marketEntry.elasticityK * (inputQty / Math.max(marketEntry.volumeAvailable, 1)))
-      const updatedGuild = {
-        ...guild,
-        gold: guild.gold - cost,
-        inventory: {
-          ...guild.inventory,
-          [outputId]: (guild.inventory[outputId] ?? 0) + outputQty,
-        },
-        // output de l'atelier = produit (gratuit) ; l'input acheté impacte l'or, pas le coût moyen de l'output
-        inventoryAvgCost: {
-          ...(guild.inventoryAvgCost ?? {}),
-          [outputId]: nextAvgCost(guild.inventoryAvgCost?.[outputId] ?? 0, guild.inventory[outputId] ?? 0, outputQty, 0),
-        },
-      }
-      s = isPlayer
-        ? { ...s, player: updatedGuild as typeof s.player }
-        : updateRival(s, updatedGuild)
+      s = addGold(s, operator, -cost)
       s = {
         ...s,
         market: {
           resources: {
             ...s.market.resources,
-            [inputId]: {
-              ...marketEntry,
-              currentPrice: newPrice,
-              volumeAvailable: marketEntry.volumeAvailable - inputQty,
-            },
+            [inputId]: { ...marketEntry, currentPrice: newPrice, volumeAvailable: marketEntry.volumeAvailable - inputQty },
           },
         },
       }
-      didProduce = true
     }
-    // else: Atelier stops cleanly — no output, no debt
+
+    // Distribution du produit au prorata des cases
+    const split = splitProrata(outputTotal, building)
+    for (const [g, qty] of split) {
+      if (qty <= 0) continue
+      s = addInventory(s, g, outputId, qty)
+      s = { ...s, log: [...s.log, { day: s.day, actor: g, type: 'PRODUCTION', payload: { buildingId: building.defId, resource: outputId, qty } }] }
+    }
+    return s
   }
 
-  // Emit PRODUCTION event so the UI can show production feedback (same shape as Tier 1)
-  if (didProduce) {
-    const event: GameEvent = {
-      day: s.day,
-      actor: guildId,
-      type: 'PRODUCTION',
-      payload: { buildingId: building.defId, resource: outputId, qty: outputQty },
+  // ── Producteur Tier 1 (pas d'intrant) — production gratuite, prorata ───────
+  if (def.produces && def.productionPerDay > 0) {
+    const degradation = building.degradation ?? 0
+    const level = building.level ?? 1
+    const levelBonus = def.upgradable ? (SAWMILL_PRODUCTION[level] / SAWMILL_PRODUCTION[1]) : 1
+    const total = Math.round(def.productionPerDay * levelBonus * (1 - degradation))
+    const prodId = def.produces as ResourceId
+
+    const split = splitProrata(total, building)
+    for (const [g, qty] of split) {
+      if (qty <= 0) continue
+      s = addInventory(s, g, prodId, qty)
+      s = { ...s, log: [...s.log, { day: s.day, actor: g, type: 'PRODUCTION', payload: { buildingId: building.defId, resource: prodId, qty, degradation, level } }] }
     }
-    s = { ...s, log: [...s.log, event] }
+  }
+
+  // ── Revenu Tier 2/3 (or/jour) — réparti au prorata des cases ───────────────
+  if (def.revenuePerDay) {
+    const level = building.level ?? 1
+    const baseRev = def.upgradeRevenues ? (def.upgradeRevenues[String(level)] ?? def.revenuePerDay) : def.revenuePerDay
+    const totalRev = Math.round(baseRev)
+    const split = splitProrata(totalRev, building)
+    for (const [g, gold] of split) {
+      if (gold <= 0) continue
+      s = addGold(s, g, gold)
+      s = { ...s, log: [...s.log, { day: s.day, actor: g, type: 'REVENUE', payload: { buildingId: building.defId, gold } }] }
+    }
   }
 
   return s
