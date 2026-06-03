@@ -485,7 +485,9 @@ export function SpotMarket({ state, onSell, onBuy, onContribute: _onContribute, 
   const avgCost = player.inventoryAvgCost?.[effectiveSelected] ?? 0
 
   const maxBuyQty   = Math.floor(player.gold / Math.max(mkt.currentPrice, 0.01))
-  const maxBuyAvail = Math.min(maxBuyQty, Math.floor(mkt.volumeAvailable))
+  // Slippage : pas de mur dur à volumeAvailable (le slippage punit les gros ordres).
+  // Le seul plafond à l'achat est l'or du joueur. Voir market.ts:74 (MARKET_MODE='slippage').
+  const maxBuyAvail = maxBuyQty
   const safeQty     = Math.max(1, qty)
   const safeSellQty = Math.min(safeQty, playerQty)
   const safeBuyQty  = Math.min(safeQty, maxBuyAvail)
