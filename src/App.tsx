@@ -8,7 +8,10 @@ import { buyBuilding, upgradeBuilding } from './engine/buildings'
 import { buyShare } from './engine/shares'
 import { generateChronicle } from './engine/chronicle'
 import type { ChronicleResult } from './engine/chronicle'
-import { HUD } from './components/HUD'
+import { GameHeader } from './components/GameHeader'
+import { NetWorthPanel } from './components/NetWorthPanel'
+import { Footer, type FooterTab } from './components/Footer'
+import { MenuDrawer } from './components/MenuDrawer'
 import { SpotMarket } from './components/SpotMarket'
 import { WorldMap } from './components/WorldMap'
 import { Chronicle } from './components/Chronicle'
@@ -16,6 +19,9 @@ import { Chronicle } from './components/Chronicle'
 export default function App() {
   const [state, setState] = useState<GameState>(() => initGame())
   const [chronicle, setChronicle] = useState<ChronicleResult | null>(null)
+  // V8 shell — la modale Spot Market est OUVERTE par défaut (view='market').
+  const [view, setView] = useState<'market' | 'map'>('market')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // ─── Real-time tick engine (1s interval) ────────────────────────────────────
   useEffect(() => {
@@ -52,89 +58,92 @@ export default function App() {
     })
   }
 
-  function handleSell(resourceId: ResourceId, qty: number) {
-    dispatch(s => sellToMarket(s, resourceId, qty))
-  }
-
-  function handleBuy(resourceId: ResourceId, qty: number) {
-    dispatch(s => buyFromMarket(s, resourceId, qty))
-  }
-
-  function handleContribute(qty: number, wonderId: WonderId) {
-    dispatch(s => contributeToWonder(s, qty, wonderId))
-  }
-
-  function handleBuyBuilding(defId: BuildingId) {
-    dispatch(s => buyBuilding(s, defId))
-  }
-
-  function handleUpgradeBuilding(instanceId: string) {
-    dispatch(s => upgradeBuilding(s, instanceId))
-  }
-
-  function handleBuyShare(instanceId: string) {
-    dispatch(s => buyShare(s, instanceId))
-  }
+  const handleSell = (resourceId: ResourceId, qty: number) => dispatch(s => sellToMarket(s, resourceId, qty))
+  const handleBuy = (resourceId: ResourceId, qty: number) => dispatch(s => buyFromMarket(s, resourceId, qty))
+  const handleContribute = (qty: number, wonderId: WonderId) => dispatch(s => contributeToWonder(s, qty, wonderId))
+  const handleBuyBuilding = (defId: BuildingId) => dispatch(s => buyBuilding(s, defId))
+  const handleUpgradeBuilding = (instanceId: string) => dispatch(s => upgradeBuilding(s, instanceId))
+  const handleBuyShare = (instanceId: string) => dispatch(s => buyShare(s, instanceId))
 
   function handleNewGame() {
     setChronicle(null)
     setState(initGame())
   }
 
+  function handleFooterSelect(tab: FooterTab) {
+    if (tab === 'menu') { setMenuOpen(o => !o); return }
+    setMenuOpen(false)
+    setView(tab)
+  }
+
   const won = state.phase === 'won'
 
   return (
     <div style={{
-      display: 'flex',
+      position: 'relative',
       height: '100vh',
       overflow: 'hidden',
       background: 'radial-gradient(125% 120% at 50% -8%, #12243c 0%, #0c1828 46%, #060c15 100%), var(--bg)',
     }}>
-      {/* ── LEFT SIDEBAR — Spot Market (permanent, always visible) ── */}
-      <aside style={{
-        width: 'var(--panel-width)',
-        flexShrink: 0,
-        overflowY: 'auto',
-        borderRight: '1px solid var(--edge)',
-        background: 'linear-gradient(180deg, #112135 0%, #0c1827 100%)',
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
-        <SpotMarket
-          state={state}
-          onSell={handleSell}
-          onBuy={handleBuy}
-          onContribute={handleContribute}
-          onBuyBuilding={handleBuyBuilding}
-        />
-      </aside>
-
-      {/* ── RIGHT COLUMN — HUD + Map ── */}
+      {/* ── World map — fond plein écran (entre header et footer) ── */}
       <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0,
+        position: 'absolute',
+        top: 'var(--header-height)', bottom: 'var(--footer-height)', left: 0, right: 0,
         overflow: 'hidden',
       }}>
-        {/* HUD top bar */}
-        <HUD state={state} />
+        <WorldMap
+          state={state}
+          onBuyBuilding={handleBuyBuilding}
+          onBuyShare={handleBuyShare}
+          onUpgradeBuilding={handleUpgradeBuilding}
+        />
+      </div>
 
-        {/* World map fills remaining space */}
-        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <WorldMap
+      {/* ── Header permanent flottant ── */}
+      <GameHeader state={state} />
+
+      {/* ── Richesse nette — overlay haut-droite ── */}
+      <NetWorthPanel state={state} />
+
+      {/* ── Modale Spot Market — flottante à gauche, ouverte par défaut ── */}
+      {view === 'market' && (
+        <div
+          key="spot-modal"
+          style={{
+            position: 'absolute', zIndex: 35,
+            top: 'calc(var(--header-height) + var(--modal-margin))',
+            bottom: 'calc(var(--footer-height) + var(--modal-margin))',
+            left: 'var(--modal-margin)',
+            width: 'min(var(--panel-width), calc(100% - 2 * var(--modal-margin)))',
+            display: 'flex', flexDirection: 'column',
+            background: 'linear-gradient(180deg, #112135 0%, #0c1827 100%)',
+            border: '1px solid var(--edge)',
+            borderRadius: 'var(--radius)',
+            boxShadow: '0 18px 50px rgba(0,0,0,0.5)',
+            overflowY: 'auto',
+            animation: 'modalIn 0.2s ease',
+          }}
+        >
+          <SpotMarket
             state={state}
+            onSell={handleSell}
+            onBuy={handleBuy}
+            onContribute={handleContribute}
             onBuyBuilding={handleBuyBuilding}
-            onBuyShare={handleBuyShare}
-            onUpgradeBuilding={handleUpgradeBuilding}
           />
         </div>
-      </div>
+      )}
+
+      {/* ── Footer nav ── */}
+      <Footer view={view} menuOpen={menuOpen} onSelect={handleFooterSelect} />
+
+      {/* ── Drawer Menu ── */}
+      {menuOpen && <MenuDrawer state={state} onClose={() => setMenuOpen(false)} />}
 
       {/* ── DEV PANEL — bottom-right overlay ── */}
       {import.meta.env.DEV && (
         <div style={{
-          position: 'fixed', bottom: 12, right: 12, zIndex: 9999,
+          position: 'fixed', bottom: 'calc(var(--footer-height) + 8px)', right: 12, zIndex: 9999,
           background: 'rgba(7,13,22,0.95)', border: '1px solid rgba(96,160,224,0.20)',
           borderRadius: 6, padding: '6px 10px',
           display: 'flex', gap: 8, alignItems: 'center',

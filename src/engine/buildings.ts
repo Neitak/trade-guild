@@ -1,5 +1,5 @@
 import type { GameState, BuildingId, GuildState, OwnedBuilding, GameEvent, GuildId, ResourceId } from './types'
-import { getRival, updateRival } from './types'
+import { getRival, updateRival, nextAvgCost } from './types'
 import buildingDefs from '../data/buildings.json'
 
 // ─── Sawmill upgrade table ────────────────────────────────────────────────────
@@ -295,11 +295,17 @@ function applyGuildProduction(state: GameState, guildId: GuildId): GameState {
       }
 
       const currentGuild = isPlayer ? s.player : getRival(s, guildId)
+      const prodId = def.produces as ResourceId
       const updatedGuild = {
         ...currentGuild,
         inventory: {
           ...currentGuild.inventory,
-          [def.produces]: (currentGuild.inventory[def.produces as ResourceId] ?? 0) + produced,
+          [def.produces]: (currentGuild.inventory[prodId] ?? 0) + produced,
+        },
+        // production = gratuite (coût 0) → tire le coût moyen vers le bas
+        inventoryAvgCost: {
+          ...(currentGuild.inventoryAvgCost ?? {}),
+          [prodId]: nextAvgCost(currentGuild.inventoryAvgCost?.[prodId] ?? 0, currentGuild.inventory[prodId] ?? 0, produced, 0),
         },
       }
 
@@ -364,6 +370,10 @@ function applyAtelierProduction(
         [inputId]: haveInput - inputQty,
         [outputId]: (guild.inventory[outputId] ?? 0) + outputQty,
       },
+      inventoryAvgCost: {
+        ...(guild.inventoryAvgCost ?? {}),
+        [outputId]: nextAvgCost(guild.inventoryAvgCost?.[outputId] ?? 0, guild.inventory[outputId] ?? 0, outputQty, 0),
+      },
     }
     s = isPlayer
       ? { ...s, player: updatedGuild as typeof s.player }
@@ -385,6 +395,11 @@ function applyAtelierProduction(
         inventory: {
           ...guild.inventory,
           [outputId]: (guild.inventory[outputId] ?? 0) + outputQty,
+        },
+        // output de l'atelier = produit (gratuit) ; l'input acheté impacte l'or, pas le coût moyen de l'output
+        inventoryAvgCost: {
+          ...(guild.inventoryAvgCost ?? {}),
+          [outputId]: nextAvgCost(guild.inventoryAvgCost?.[outputId] ?? 0, guild.inventory[outputId] ?? 0, outputQty, 0),
         },
       }
       s = isPlayer

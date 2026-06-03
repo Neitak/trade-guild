@@ -37,11 +37,13 @@ export interface BuildingDef {
 
 export type GuildId = 'player' | 'brice' | 'raph' | 'rita'
 
+// V8 — couleurs joueurs : Nun=bleu (var), Brice=jaune, Raph=vert, Julien=rouge (4e, invisible).
+// Source UI dupliquée dans theme.ts AZUR.players — garder synchronisé.
 export const GUILD_COLORS: Record<GuildId, string> = {
   player: 'var(--player-color)',
-  brice:  '#e08a45',
-  raph:   '#e8c069',
-  rita:   '#e67e22',
+  brice:  '#f2c230', // jaune (était #e08a45 orange)
+  raph:   '#4caf66', // vert (était #e8c069 doré)
+  rita:   '#e67e22', // legacy — Rita retirée du jeu
 }
 
 // ─── Shares (rachat hostile) ──────────────────────────────────────────────────
@@ -126,8 +128,23 @@ export interface GuildState {
   color: string  // CSS color
   gold: number
   inventory: Partial<Record<ResourceId, number>>
+  // V8 — coût unitaire moyen pondéré du stock détenu (« Coût moyen » dans l'UI).
+  // Mis à jour UNIQUEMENT aux acquisitions : achat marché = prix payé, production = 0
+  // (« ce que tu produis est gratuit »). Les retraits (vente, conso atelier, construction)
+  // ne touchent pas le coût unitaire des unités restantes → modèle robuste.
+  inventoryAvgCost?: Partial<Record<ResourceId, number>>
   buildings: OwnedBuilding[]
   netWorthHistory: Array<{ day: number; value: number }>
+}
+
+/**
+ * Nouveau coût unitaire moyen après une acquisition de `addQty` unités pour `addCost` or.
+ * Production gratuite → addCost = 0. À stock final nul → 0 (reset implicite : prevQty=0
+ * annule tout coût résiduel à la prochaine acquisition).
+ */
+export function nextAvgCost(prevAvg: number, prevQty: number, addQty: number, addCost: number): number {
+  const newQty = prevQty + addQty
+  return newQty > 0 ? (prevAvg * prevQty + addCost) / newQty : 0
 }
 
 // ─── Wonder ──────────────────────────────────────────────────────────────────
