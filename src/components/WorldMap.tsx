@@ -4,6 +4,7 @@ import { GUILD_COLORS } from '../engine/types'
 import { previewBuyShare, EFFECTIVE_CONTROL_THRESHOLD } from '../engine/shares'
 import { SAWMILL_PRODUCTION, AUBERGE_REVENUE } from '../engine/buildings'
 import buildingDefs from '../data/buildings.json'
+import { AZUR } from '../theme'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -11,10 +12,8 @@ const RESOURCE_ICONS: Record<string, string> = {
   wood: '🪵', olive: '🫒', meuble: '🪑', huile: '🫙', pierre: '🗿',
 }
 
-// Resource-native colors for production floaters (match SpotMarket chart colors)
-const RESOURCE_COLORS: Record<string, string> = {
-  wood: '#5a9e6a', olive: '#8bc34a', meuble: '#b07ec8', huile: '#e8c069', pierre: '#9aa7b5',
-}
+// Resource-native colors — single source of truth in theme.ts (V8).
+const RESOURCE_COLORS: Record<string, string> = AZUR.resources
 
 function getBuildingCostLabel(defId: string): string {
   const def = (buildingDefs as any[]).find(b => b.id === defId)

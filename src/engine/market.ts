@@ -1,5 +1,5 @@
 import type { GameState, GameEvent, ResourceId, MarketState, ResourceMarket, BuildingId, GuildId } from './types'
-import { getRival, updateRival } from './types'
+import { getRival, updateRival, nextAvgCost } from './types'
 
 const PRODUCERS: Partial<Record<ResourceId, BuildingId[]>> = {
   wood:   ['sawmill'],
@@ -209,6 +209,9 @@ export function buyFromMarket(
       ]
     : state.activeRumors
 
+  const prevQty = state.player.inventory[resourceId] ?? 0
+  const prevAvg = state.player.inventoryAvgCost?.[resourceId] ?? 0
+
   return {
     ...state,
     player: {
@@ -217,6 +220,11 @@ export function buyFromMarket(
       inventory: {
         ...state.player.inventory,
         [resourceId]: newWoodQty,
+      },
+      inventoryAvgCost: {
+        ...(state.player.inventoryAvgCost ?? {}),
+        // acquisition payante : prix réellement déboursé pour ces unités
+        [resourceId]: nextAvgCost(prevAvg, prevQty, actualQty, cost),
       },
     },
     market: {

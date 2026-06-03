@@ -16,15 +16,20 @@
   --text-muted:   #6c8299;
   --success:      #46b06f;
   --danger:       #d6463f;
-  --player-color: #56c5d6;
-  --brice-color:  #e08a45;
-  --raph-color:   #e8c069;
+  --player-color: #56c5d6; /* Nun — bleu */
+  --brice-color:  #f2c230; /* V8 — jaune (était #e08a45) */
+  --raph-color:   #4caf66; /* V8 — vert (était #e8c069) */
+  --julien-color: #d6463f; /* V8 — rouge (4e joueur, invisible) */
   --border:       rgba(96,160,224,0.20);
 
   /* ─── Layout tokens ──────────────────────────────────────── */
   --panel-width:  372px;
   --hud-height:   70px;
   --radius:       8px;
+  /* V8 shell */
+  --header-height: 48px;
+  --footer-height: 64px;
+  --modal-margin:  7px;   /* fine marge qui laisse voir la carte autour de la modale */
 
   /* ─── Typography ─────────────────────────────────────────── */
   --font-title: 'Cinzel Decorative', Georgia, serif;
@@ -143,6 +148,18 @@ button:disabled {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* V8 — drawer Menu slide-in depuis la droite */
+@keyframes drawerIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+/* V8 — modale Spot Market slide-in depuis la gauche */
+@keyframes modalIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes pulse {

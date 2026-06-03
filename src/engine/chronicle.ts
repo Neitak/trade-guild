@@ -34,9 +34,9 @@ function findKeyMoments(state: GameState): string[] {
   const moments: string[] = []
 
   const buildingNames: Record<string, string> = {
-    orchard: 'Verger', fruit_market: 'Marché aux Fruits', sawmill: 'Scierie', menuiserie: 'Menuiserie',
+    sawmill: 'Bûcheron', olivery: 'Oliveraie', menuiserie: 'Menuiserie', press: 'Presse', auberge: 'Auberge',
   }
-  const resourceLabels: Record<string, string> = { apple: 'pommes', wood: 'bois' }
+  const resourceLabels: Record<string, string> = { wood: 'bois', olive: 'olives', meuble: 'meubles', huile: "huile d'olive" }
 
   // 1. Best single sell (by gold earned)
   const bestSell = log
@@ -52,7 +52,7 @@ function findKeyMoments(state: GameState): string[] {
   }
 
   // 2. Biggest price crash in any resource
-  let biggestDrop = 0, dropDay = 0, dropResource = 'pommes'
+  let biggestDrop = 0, dropDay = 0, dropResource = 'bois'
   for (const [resId, market] of Object.entries(state.market.resources)) {
     const hist = market.priceHistory
     for (let i = 1; i < hist.length; i++) {
@@ -115,7 +115,7 @@ const ADVICE: Record<ChronicleResult['archetype'], string[]> = {
   ],
   trader: [
     'Vous avez dominé le marché — mais sans bâtiments, la Tour reste hors de portée. Tradez pour financer, pas uniquement pour gagner.',
-    'Vos réflexes de marché sont excellents. Utilisez-les pour assécher les pommes de Tex avant qu\'il ne construise son marché.',
+    'Vos réflexes de marché sont excellents. Utilisez-les pour assécher le bois de Brice avant qu\'il ne construise son marché.',
   ],
   manipulator: [
     'Vous avez pressé Tex — bien joué. La prochaine fois, achetez ses parts plus tôt pour profiter de sa production dès le jour 10.',
@@ -137,13 +137,13 @@ function getAdvice(archetype: ChronicleResult['archetype'], won: boolean): strin
 
 const TITLES_WON: Record<ChronicleResult['archetype'], string[]> = {
   investor: ['L\'Architecte de l\'Abondance', 'Le Bâtisseur Silencieux'],
-  trader: ['Le Maître du Marché', 'Le Roi des Pommes'],
+  trader: ['Le Maître du Marché', 'Le Roi du Négoce'],
   manipulator: ['L\'Ombre du Commerce', 'Le Fossoyeur de Tex'],
   mixed: ['Le Stratège Imprévisible', 'L\'Opportuniste Couronné'],
 }
 const TITLES_LOST: Record<ChronicleResult['archetype'], string[]> = {
   investor: ['Le Rêveur de Pierres', 'Trop de Tours, Pas Assez d\'Or'],
-  trader: ['Le Marchand Sans Tour', 'Riche en Pommes, Pauvre en Gloire'],
+  trader: ['Le Marchand Sans Tour', 'Riche en Stock, Pauvre en Gloire'],
   manipulator: ['Le Complot Déjoué', 'Tex a Bien Ri'],
   mixed: ['La Bonne Idée du Mauvais Moment', 'Courageux Mais Confus'],
 }

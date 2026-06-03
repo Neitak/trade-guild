@@ -9,7 +9,7 @@ const RUMOR_VARIANTS: Record<string, TemplateVariants> = {
     ({ qty, resourceId }) => {
       if (resourceId === 'wood') return `Des bûcherons affirment avoir vendu ${qty} stères de bois à Brice avant l'aube.`
       if (resourceId === 'pierre') return `Des carriers murmurent que Raph leur a acheté ${qty} blocs de pierre ce matin.`
-      return `Des marchands murmurent que Brice accumule des pommes — ${qty} unités aperçues.`
+      return `Des marchands murmurent que Brice accumule des marchandises — ${qty} unités aperçues.`
     },
     ({ resourceId }) => resourceId === 'wood'
       ? `On voit des charrettes chargées de bois partir vers l'entrepôt de Brice.`

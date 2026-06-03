@@ -24,10 +24,21 @@ export const AZUR = {
   band:     'rgba(86,168,230,0.05)',
   hr:       'rgba(96,160,224,0.16)',
   players: {
-    toi:       '#56c5d6',
-    brice:     '#e08a45',
-    raph:      '#e8c069',
+    toi:       '#56c5d6', // Nun — bleu
+    brice:     '#f2c230', // jaune (V8, était orange #e08a45)
+    raph:      '#4caf66', // vert (V8, était doré #e8c069)
+    julien:    '#d6463f', // rouge (V8, 4e joueur, invisible pour l'instant)
     available: '#46607d',
+  },
+  // Identité couleur par ressource — source unique (V8). Une ressource = une couleur,
+  // partout : fond de carte teinté, courbe, titre, prix, icône, floaters.
+  // La direction haussier/baissier se lit via le triangle EMA (vert/rouge), PAS via ces teintes.
+  resources: {
+    wood:   '#a9764e', // marron (V8, était verdâtre #5a9e6a)
+    olive:  '#8bc34a', // vert olive
+    meuble: '#b07ec8', // violet
+    huile:  '#e0a030', // ambre (décalé du gold UI #e8c069 pour éviter la confusion)
+    pierre: '#9aa7b5', // gris (hors carte pour l'instant)
   },
   font: {
     display: 'Marcellus, serif',

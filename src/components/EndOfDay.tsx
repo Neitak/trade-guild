@@ -11,10 +11,10 @@ interface Props {
 }
 
 const BUILDING_NAMES: Record<string, string> = {
-  orchard: 'Verger', fruit_market: 'Marché aux Fruits',
-  sawmill: 'Scierie', menuiserie: 'Menuiserie',
+  sawmill: 'Bûcheron', olivery: 'Oliveraie',
+  menuiserie: 'Menuiserie', press: 'Presse', auberge: 'Auberge',
 }
-const RESOURCE_ICONS: Record<string, string> = { apple: '🍎', wood: '🪵' }
+const RESOURCE_ICONS: Record<string, string> = { wood: '🪵', olive: '🫒', meuble: '🪑', huile: '🫙' }
 
 function describePlayer(e: GameEvent): string | null {
   if (e.actor !== 'player') return null
