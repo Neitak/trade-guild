@@ -344,7 +344,8 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
       </h2>
 
       <div ref={wrapperRef} style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-      <svg ref={svgRef} width="100%" height="100%" viewBox={`0 0 ${svgW} ${viewH}`} style={{ borderRadius: 8, display: 'block' }}>
+      <svg ref={svgRef} width="100%" height="100%" viewBox={`0 0 ${svgW} ${viewH}`}
+        style={{ borderRadius: 8, display: 'block', transform: 'scale(0.9)', transformOrigin: 'center center' }}>
         <defs>
           <radialGradient id="nodeFillGrad" cx="38%" cy="32%" r="70%">
             <stop offset="0%" stopColor="#16304c"/>
@@ -353,18 +354,15 @@ export function WorldMap({ state, onBuyBuilding, onBuyShare, onUpgradeBuilding }
         </defs>
         <rect x={0} y={0} width={svgW} height={viewH} fill="#070d16" />
 
-        {/* Zone bands */}
+        {/* Libellés de zone — V8 #9b : on garde les noms, on retire la délimitation
+            (plus de bandes teintées ni de lignes de séparation entre quartiers). */}
         {ZONES.map(z => {
           const yStart = z.yStart * vSpread
-          const yEnd   = z.yEnd * vSpread
           return (
-          <g key={z.label}>
-            <rect x={0} y={yStart} width={svgW} height={yEnd - yStart} fill={z.color} />
-            <rect x={0} y={yEnd}   width={svgW} height={1} fill="rgba(96,160,224,0.12)" />
-            <text x={10} y={yStart + 16} fontSize={9 * inv} fill="rgba(96,160,224,0.40)" fontFamily="var(--font-ui)" letterSpacing="0.18em">
+            <text key={z.label} x={10} y={yStart + 16} fontSize={9 * inv}
+              fill="rgba(96,160,224,0.40)" fontFamily="var(--font-ui)" letterSpacing="0.18em">
               {z.label}
             </text>
-          </g>
           )
         })}
 
