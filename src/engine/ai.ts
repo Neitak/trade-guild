@@ -24,8 +24,6 @@ export function runRivalAI(state: GameState, guildId: GuildId): GameState {
 }
 
 export const runBriceAI = (state: GameState) => runRivalAI(state, 'brice')
-/** @deprecated */
-export const runTexAI = runBriceAI
 
 // ─── Helper to update a strategy without clobbering other fields ─────────────
 

@@ -184,9 +184,6 @@ export function initGame(): GameState {
       raph:  { preferredResource: 'huile' },
     },
 
-    // ─── Shares ─────────────────────────────────────────────────────────────
-    shareRegistry: [],
-
     // ─── Market Events ──────────────────────────────────────────────────────
     pendingMarketEvents: [],
     activeMarketEvents: [],

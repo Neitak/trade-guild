@@ -228,9 +228,6 @@ export function rivalBuyBuilding(state: GameState, guildId: GuildId, defId: Buil
   }
 }
 
-/** @deprecated use rivalBuyBuilding */
-export const texBuyBuilding = (s: GameState, d: BuildingId) => rivalBuyBuilding(s, 'brice', d)
-
 // ─── Map placement ────────────────────────────────────────────────────────────
 
 function addBuildingToMap(

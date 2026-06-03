@@ -1,8 +1,9 @@
-import type { GameState, GameEvent, ResourceId, WonderId, OwnedBuilding, ActiveRumor } from './types'
+import type { GameState, GameEvent, ResourceId, WonderId, OwnedBuilding, ActiveRumor, GuildId } from './types'
 import { produceResources } from './buildings'
 import { recoverPrices } from './market'
 import { runRivalAI } from './ai'
 import { generateRumors, revealDueRumors } from './rumors'
+import { shareAssetValue } from './shares'
 import buildingDefs from '../data/buildings.json'
 
 // ─── End of day resolution ────────────────────────────────────────────────────
@@ -126,10 +127,14 @@ function updateNetWorth(state: GameState): GameState {
     Object.entries(state.market.resources).map(([id, r]) => [id, r.currentPrice])
   ) as Partial<Record<ResourceId, number>>
 
-  function worth(g: { gold: number; inventory: Partial<Record<ResourceId, number>> }): number {
-    return g.gold + Object.entries(g.inventory).reduce((sum, [id, qty]) =>
+  // Net worth = or + inventaire (au prix marché) + valeur des parts détenues
+  // (cases possédées sur tout le plateau, capitalisées). Sans la valeur des parts,
+  // racheter une case ferait chuter la richesse nette (or sorti, aucun actif inscrit).
+  function worth(g: { id: GuildId; gold: number; inventory: Partial<Record<ResourceId, number>> }): number {
+    const inv = Object.entries(g.inventory).reduce((sum, [id, qty]) =>
       sum + (qty ?? 0) * (prices[id as ResourceId] ?? 0), 0
     )
+    return g.gold + inv + shareAssetValue(state, g.id)
   }
 
   const updatedRivals = state.rivals.map(r => ({

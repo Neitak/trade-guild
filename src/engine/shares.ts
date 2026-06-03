@@ -1,5 +1,6 @@
 import type { GameState, BuildingId, GameEvent, OwnedBuilding, GuildId } from './types'
 import { getRival, updateRival, casesOwnedBy, operatorOf, sharePct } from './types'
+import { SAWMILL_PRODUCTION } from './buildings'
 import buildingDefs from '../data/buildings.json'
 
 // ─── Tuning (placeholders — voir project-shares-4bars-schema.md) ──────────────
@@ -29,6 +30,8 @@ function findBuilding(state: GameState, instanceId: string): { building: OwnedBu
 }
 
 // Valeur or/jour d'un bâtiment (revenu direct, ou production × prix marché).
+// Reflète le niveau ET la dégradation, comme `applyBuildingProduction` (buildings.ts),
+// sinon les parts d'un extracteur amélioré seraient massivement sous-évaluées.
 function buildingDailyGoldValue(state: GameState, building: OwnedBuilding): number {
   const def = getBuildingDef(building.defId)
   const level = building.level ?? 1
@@ -37,9 +40,29 @@ function buildingDailyGoldValue(state: GameState, building: OwnedBuilding): numb
   }
   if (def.produces) {
     const mkt = state.market.resources[def.produces as keyof typeof state.market.resources]
-    return (def.productionPerDay ?? 0) * (mkt?.currentPrice ?? 0)
+    const degradation = building.degradation ?? 0
+    const levelBonus = def.upgradable ? (SAWMILL_PRODUCTION[level] / SAWMILL_PRODUCTION[1]) : 1
+    const effectiveProd = (def.productionPerDay ?? 0) * levelBonus * (1 - degradation)
+    return effectiveProd * (mkt?.currentPrice ?? 0)
   }
   return 0
+}
+
+// Valeur d'actif des parts détenues par une guilde sur TOUT le plateau (or).
+// Sert au net worth : on capitalise le revenu/jour des cases possédées (PRICE_MULT_DAYS),
+// SANS la surcharge de transfert (= prime de transaction, pas une valeur intrinsèque).
+export function shareAssetValue(state: GameState, guildId: GuildId): number {
+  const all: OwnedBuilding[] = [
+    ...state.player.buildings,
+    ...state.rivals.flatMap(r => r.buildings),
+  ]
+  let total = 0
+  for (const b of all) {
+    const cases = casesOwnedBy(b, guildId)
+    if (cases <= 0) continue
+    total += buildingDailyGoldValue(state, b) * (cases / 4) * PRICE_MULT_DAYS
+  }
+  return Math.round(total)
 }
 
 // Prix d'UNE case (25 %), indexé sur la valeur + surenchère par transfert.

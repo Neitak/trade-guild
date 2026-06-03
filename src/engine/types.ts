@@ -46,14 +46,6 @@ export const GUILD_COLORS: Record<GuildId, string> = {
   rita:   '#e67e22', // legacy — Rita retirée du jeu
 }
 
-// ─── Shares (rachat hostile) ──────────────────────────────────────────────────
-
-export interface ShareOwnership {
-  buildingId: BuildingId
-  ownerGuildId: GuildId
-  shares: number // 0–100 (percentage)
-}
-
 // ─── Events ──────────────────────────────────────────────────────────────────
 
 export type GameEventType =
@@ -262,7 +254,6 @@ export interface GameState {
   activeRumors: ActiveRumor[]
   wonders: WonderProgress[]
   rivalStrategies: Partial<Record<GuildId, RivalStrategy>>
-  shareRegistry: ShareOwnership[]
   pendingMarketEvents: PendingMarketEvent[]
   activeMarketEvents: ActiveMarketEvent[]
 }
