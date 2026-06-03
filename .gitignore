@@ -5,3 +5,9 @@ references/
 images/
 *.local
 .DS_Store
+
+# Docs de travail locaux (mémoire Claude / runbook) — gardés sur disque, hors repo
+CLAUDE.md
+RUNBOOK.md
+# Artefacts de simulation
+sim-results/
