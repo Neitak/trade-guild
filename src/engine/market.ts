@@ -51,6 +51,58 @@ function calcPriceAfterBuy(market: ResourceMarket, qty: number): number {
   return market.currentPrice * (1 + impact)
 }
 
+// ─── Modèle de marché (V8 — Lot 4, réversible) ────────────────────────────────
+// 'slippage' : prix MOYEN de remplissage, pas de mur d'achat dur — un gros ordre
+//   marche le prix contre soi (aller-retour perdant). Mêmes règles joueur/rivaux.
+// 'hardcap'  : ancien modèle — prix unique puis saut, achat plafonné à volumeAvailable.
+export type MarketMode = 'slippage' | 'hardcap'
+export const MARKET_MODE: MarketMode = 'slippage'
+
+/** Clamp prix dans la bande 20 %–250 % du prix d'équilibre de base (jamais < 0.05). */
+function clampToBand(r: ResourceMarket, p: number): number {
+  return Math.max(0.05, Math.max(r.baseEquilibriumPrice * 0.20, Math.min(r.baseEquilibriumPrice * 2.50, p)))
+}
+
+interface Fill { actualQty: number; avgPrice: number; newPrice: number; total: number }
+
+/** Remplissage d'un ACHAT. En slippage : prix moyen linéaire P0·(1+0,5·k·q/V), prix final P0·(1+k·q/V). */
+function fillBuy(r: ResourceMarket, qty: number): Fill {
+  if (MARKET_MODE === 'hardcap') {
+    const actualQty = Math.min(qty, r.volumeAvailable)
+    return { actualQty, avgPrice: r.currentPrice, newPrice: calcPriceAfterBuy(r, actualQty), total: actualQty * r.currentPrice }
+  }
+  const actualQty = Math.max(0, qty) // pas de mur dur : on peut dépasser volumeAvailable, le slippage punit
+  const impact = r.elasticityK * (actualQty / Math.max(r.volumeAvailable, 1))
+  const avgPrice = r.currentPrice * (1 + 0.5 * impact)
+  const newPrice = clampToBand(r, r.currentPrice * (1 + impact))
+  return { actualQty, avgPrice, newPrice, total: actualQty * avgPrice }
+}
+
+/** Remplissage d'une VENTE. En slippage : prix moyen P0·(1−0,5·k·q/V), prix final P0·(1−k·q/V). */
+function fillSell(r: ResourceMarket, qty: number): Fill {
+  const actualQty = Math.max(0, qty)
+  if (MARKET_MODE === 'hardcap') {
+    return { actualQty, avgPrice: r.currentPrice, newPrice: calcPriceAfterSell(r, actualQty), total: actualQty * r.currentPrice }
+  }
+  const impact = r.elasticityK * (actualQty / Math.max(r.volumeAvailable, 1))
+  const avgPrice = Math.max(0.01, r.currentPrice * (1 - 0.5 * impact))
+  const newPrice = clampToBand(r, r.currentPrice * (1 - impact))
+  return { actualQty, avgPrice, newPrice, total: actualQty * avgPrice }
+}
+
+/**
+ * Plus grande quantité achetable avec `gold` sous slippage (coût total quadratique en q).
+ * Résout (0,5·k·P0/V)·q² + P0·q − gold ≤ 0. En hardcap : simple gold / prix courant.
+ */
+function maxAffordableBuy(r: ResourceMarket, gold: number): number {
+  const P0 = Math.max(r.currentPrice, 0.01)
+  if (MARKET_MODE === 'hardcap') return Math.floor(gold / P0)
+  const a = 0.5 * r.elasticityK * P0 / Math.max(r.volumeAvailable, 1)
+  if (a <= 0) return Math.floor(gold / P0)
+  const q = (-P0 + Math.sqrt(P0 * P0 + 4 * a * gold)) / (2 * a)
+  return Math.max(0, Math.floor(q))
+}
+
 /**
  * Daily price recovery toward equilibrium + random walk noise.
  * Also adjusts equilibriumPrice based on extractor degradation (supply signal).
@@ -123,17 +175,19 @@ export function sellToMarket(
 ): GameState {
   const resource = state.market.resources[resourceId]
   const available = state.player.inventory[resourceId] ?? 0
-  const actualQty = Math.min(qty, available)
-  if (actualQty <= 0) return state
+  const reqQty = Math.min(qty, available)
+  if (reqQty <= 0) return state
 
-  const newPrice = calcPriceAfterSell(resource, actualQty)
-  const goldEarned = actualQty * resource.currentPrice
+  const fill = fillSell(resource, reqQty)
+  const actualQty = fill.actualQty
+  const newPrice = fill.newPrice
+  const goldEarned = fill.total
 
   const event: GameEvent = {
     day: state.day,
     actor: 'player',
     type: 'SELL',
-    payload: { resourceId, qty: actualQty, price: resource.currentPrice, gold: goldEarned },
+    payload: { resourceId, qty: actualQty, price: fill.avgPrice, gold: goldEarned },
   }
 
   // Each Phase 0 sell (stable or rising → falling) triggers the caravan rumor
@@ -181,17 +235,21 @@ export function buyFromMarket(
   qty: number
 ): GameState {
   const resource = state.market.resources[resourceId]
-  const actualQty = Math.min(qty, resource.volumeAvailable)
-  const cost = actualQty * resource.currentPrice
+  const reqQty = Math.min(qty, maxAffordableBuy(resource, state.player.gold))
+  if (reqQty <= 0) return state
+
+  const fill = fillBuy(resource, reqQty)
+  const actualQty = fill.actualQty
+  const cost = fill.total
   if (actualQty <= 0 || state.player.gold < cost) return state
 
-  const newPrice = calcPriceAfterBuy(resource, actualQty)
+  const newPrice = fill.newPrice
 
   const event: GameEvent = {
     day: state.day,
     actor: 'player',
     type: 'BUY',
-    payload: { resourceId, qty: actualQty, price: resource.currentPrice, cost },
+    payload: { resourceId, qty: actualQty, price: fill.avgPrice, cost },
   }
 
   const newWoodQty = (state.player.inventory[resourceId] ?? 0) + actualQty
@@ -257,17 +315,19 @@ export function rivalSellToMarket(
   const rival    = getRival(state, guildId)
   const resource = state.market.resources[resourceId]
   const available = rival.inventory[resourceId] ?? 0
-  const actualQty = Math.min(qty, available)
-  if (actualQty <= 0) return state
+  const reqQty = Math.min(qty, available)
+  if (reqQty <= 0) return state
 
-  const newPrice   = calcPriceAfterSell(resource, actualQty)
-  const goldEarned = actualQty * resource.currentPrice
+  const fill = fillSell(resource, reqQty)
+  const actualQty  = fill.actualQty
+  const newPrice   = fill.newPrice
+  const goldEarned = fill.total
 
   const event: GameEvent = {
     day: state.day,
     actor: guildId,
     type: 'SELL',
-    payload: { resourceId, qty: actualQty, price: resource.currentPrice, gold: goldEarned },
+    payload: { resourceId, qty: actualQty, price: fill.avgPrice, gold: goldEarned },
   }
 
   const updatedRival = { ...rival, gold: rival.gold + goldEarned, inventory: { ...rival.inventory, [resourceId]: available - actualQty } }
@@ -297,17 +357,21 @@ export function rivalBuyFromMarket(
 ): GameState {
   const rival    = getRival(state, guildId)
   const resource = state.market.resources[resourceId]
-  const actualQty = Math.min(qty, resource.volumeAvailable)
-  const cost = actualQty * resource.currentPrice
+  const reqQty = Math.min(qty, maxAffordableBuy(resource, rival.gold))
+  if (reqQty <= 0) return state
+
+  const fill = fillBuy(resource, reqQty)
+  const actualQty = fill.actualQty
+  const cost = fill.total
   if (actualQty <= 0 || rival.gold < cost) return state
 
-  const newPrice = calcPriceAfterBuy(resource, actualQty)
+  const newPrice = fill.newPrice
 
   const event: GameEvent = {
     day: state.day,
     actor: guildId,
     type: 'BUY',
-    payload: { resourceId, qty: actualQty, price: resource.currentPrice, cost },
+    payload: { resourceId, qty: actualQty, price: fill.avgPrice, cost },
   }
 
   const updatedRival = { ...rival, gold: rival.gold - cost, inventory: { ...rival.inventory, [resourceId]: (rival.inventory[resourceId] ?? 0) + actualQty } }
@@ -344,16 +408,13 @@ export const texBuyFromMarket = briceBuyFromMarket
 export function previewSell(state: GameState, resourceId: ResourceId, qty: number) {
   const resource = state.market.resources[resourceId]
   const available = state.player.inventory[resourceId] ?? 0
-  const actualQty = Math.min(qty, available)
-  const newPrice = calcPriceAfterSell(resource, actualQty)
-  const goldEarned = actualQty * resource.currentPrice
-  return { actualQty, currentPrice: resource.currentPrice, newPrice, goldEarned }
+  const fill = fillSell(resource, Math.min(qty, available))
+  return { actualQty: fill.actualQty, currentPrice: resource.currentPrice, newPrice: fill.newPrice, goldEarned: fill.total }
 }
 
 export function previewBuy(state: GameState, resourceId: ResourceId, qty: number) {
   const resource = state.market.resources[resourceId]
-  const actualQty = Math.min(qty, resource.volumeAvailable)
-  const newPrice = calcPriceAfterBuy(resource, actualQty)
-  const cost = actualQty * resource.currentPrice
-  return { actualQty, currentPrice: resource.currentPrice, newPrice, cost }
+  const reqQty = Math.min(qty, maxAffordableBuy(resource, state.player.gold))
+  const fill = fillBuy(resource, reqQty)
+  return { actualQty: fill.actualQty, currentPrice: resource.currentPrice, newPrice: fill.newPrice, cost: fill.total }
 }
