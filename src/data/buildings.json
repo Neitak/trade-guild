@@ -29,9 +29,9 @@
     "slotType": "workshop",
     "costResources": { "wood": 80 },
     "autoConsumeInput": "wood",
-    "autoConsumeQty": 4,
+    "autoConsumeQty": 16,
     "produces": "meuble",
-    "productionPerDay": 1
+    "productionPerDay": 4
   },
   {
     "id": "press",
@@ -41,9 +41,9 @@
     "slotType": "workshop",
     "costResources": { "olive": 80 },
     "autoConsumeInput": "olive",
-    "autoConsumeQty": 3,
+    "autoConsumeQty": 12,
     "produces": "huile",
-    "productionPerDay": 1
+    "productionPerDay": 4
   },
   {
     "id": "auberge",
