@@ -297,8 +297,10 @@ function addGold(state: GameState, guildId: GuildId, amount: number): GameState 
 }
 
 /**
- * Répartit `total` unités entre les propriétaires de cases (prorata) via la
- * méthode du plus grand reste → conserve le total EXACT, pas d'inflation au split.
+ * Répartit `total` unités or (gold) entre les propriétaires de cases (prorata) via
+ * la méthode du plus grand reste → total EXACT, pas d'inflation. Utilisé pour le
+ * REVENU (gold, gros nombres) ; la production de RESSOURCES passe par le reliquat
+ * fractionnaire (distributeWithCarry) pour rester équitable à faible volume.
  */
 function splitProrata(total: number, building: OwnedBuilding): Map<GuildId, number> {
   const result = new Map<GuildId, number>()
@@ -318,6 +320,42 @@ function splitProrata(total: number, building: OwnedBuilding): Map<GuildId, numb
     leftover--
   }
   return result
+}
+
+/**
+ * Crédite la part fractionnaire exacte de chaque proprio dans son reliquat, récolte
+ * les unités ENTIÈRES, reporte le reste. Retourne les unités à distribuer ce jour +
+ * le nouveau reliquat à persister sur le bâtiment. À faible volume (1/jour) un
+ * copropriétaire 2-2 récolte 1 unité tous les 2 jours, sans rien perdre.
+ */
+function distributeWithCarry(
+  total: number,
+  building: OwnedBuilding,
+): { harvest: Map<GuildId, number>; carry: Partial<Record<GuildId, number>> } {
+  const harvest = new Map<GuildId, number>()
+  const carry: Partial<Record<GuildId, number>> = { ...(building.prodCarry ?? {}) }
+  // Repart d'un reliquat propre : seuls les proprios actuels en portent un.
+  for (const g of Object.keys(carry) as GuildId[]) {
+    if (casesOwnedBy(building, g) === 0) delete carry[g]
+  }
+  for (const g of ownersOf(building)) {
+    const acc = (carry[g] ?? 0) + (total * casesOwnedBy(building, g)) / 4
+    const whole = Math.floor(acc + 1e-9) // marge anti-erreur flottante
+    if (whole > 0) harvest.set(g, whole)
+    carry[g] = acc - whole
+  }
+  return { harvest, carry }
+}
+
+/** Persiste le reliquat fractionnaire sur le bâtiment canonique (dans le tableau du bâtisseur). */
+function setBuildingCarry(state: GameState, building: OwnedBuilding, carry: Partial<Record<GuildId, number>>): GameState {
+  const host = building.builtBy
+  const guild = host === 'player' ? state.player : getRival(state, host)
+  const updated = {
+    ...guild,
+    buildings: guild.buildings.map(b => b.instanceId === building.instanceId ? { ...b, prodCarry: carry } : b),
+  }
+  return host === 'player' ? { ...state, player: updated as typeof state.player } : updateRival(state, updated)
 }
 
 function applyBuildingProduction(state: GameState, building: OwnedBuilding): GameState {
@@ -359,13 +397,14 @@ function applyBuildingProduction(state: GameState, building: OwnedBuilding): Gam
       }
     }
 
-    // Distribution du produit au prorata des cases
-    const split = splitProrata(outputTotal, building)
-    for (const [g, qty] of split) {
+    // Distribution du produit au prorata des cases (reliquat fractionnaire = équité)
+    const { harvest, carry } = distributeWithCarry(outputTotal, building)
+    for (const [g, qty] of harvest) {
       if (qty <= 0) continue
       s = addInventory(s, g, outputId, qty)
       s = { ...s, log: [...s.log, { day: s.day, actor: g, type: 'PRODUCTION', payload: { buildingId: building.defId, resource: outputId, qty } }] }
     }
+    s = setBuildingCarry(s, building, carry)
     return s
   }
 
@@ -377,12 +416,13 @@ function applyBuildingProduction(state: GameState, building: OwnedBuilding): Gam
     const total = Math.round(def.productionPerDay * levelBonus * (1 - degradation))
     const prodId = def.produces as ResourceId
 
-    const split = splitProrata(total, building)
-    for (const [g, qty] of split) {
+    const { harvest, carry } = distributeWithCarry(total, building)
+    for (const [g, qty] of harvest) {
       if (qty <= 0) continue
       s = addInventory(s, g, prodId, qty)
       s = { ...s, log: [...s.log, { day: s.day, actor: g, type: 'PRODUCTION', payload: { buildingId: building.defId, resource: prodId, qty, degradation, level } }] }
     }
+    s = setBuildingCarry(s, building, carry)
   }
 
   // ── Revenu Tier 2/3 (or/jour) — réparti au prorata des cases ───────────────

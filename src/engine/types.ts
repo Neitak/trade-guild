@@ -119,6 +119,11 @@ export interface OwnedBuilding {
   transferCount?: number   // nb de cases ayant changé de main (surenchère du rachat)
   degradation?: number     // 0.0 → 0.4 — Tier 1 extractors only
   level?: number           // 1–5 for upgradable buildings (default 1)
+  // Reliquat fractionnaire de production par proprio (équité à faible volume) :
+  // chaque jour on crédite la part exacte (ex : 0.5 unité pour un copropriétaire 2-2),
+  // on récolte les unités ENTIÈRES, on reporte le reste au lendemain. Sur la durée
+  // chacun touche sa part exacte sans inflation. Concerne le bien produit (1 type/bâtiment).
+  prodCarry?: Partial<Record<GuildId, number>>
 }
 
 // ── Helpers parts (4 cases) ──
